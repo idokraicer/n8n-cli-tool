@@ -1,8 +1,8 @@
 {
-  "name": "n8n-locate",
+  "name": "n8n-helper",
   "description": "CLI to locate n8n workflows and execution data via the n8n public API",
   "type": "module",
-  "bin": { "n8n-locate": "./src/cli.ts" },
+  "bin": { "n8n-helper": "./src/cli.ts" },
   "scripts": {
     "start": "bun src/cli.ts",
     "test": "bun test",

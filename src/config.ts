@@ -14,7 +14,7 @@ import {
 } from "./types";
 
 export function getHome(): string {
-  return process.env.N8N_LOCATE_HOME ?? join(homedir(), ".n8n-locate");
+  return process.env.N8N_HELPER_HOME ?? join(homedir(), ".n8n-helper");
 }
 
 function configPath(): string {
@@ -71,7 +71,7 @@ export function resolveInstance(input: {
   if (!host) {
     throw new CliError(
       "no-credentials",
-      "No n8n instance specified. Run `n8n-locate login` or pass a workflow/execution URL.",
+      "No n8n instance specified. Run `n8n-helper login` or pass a workflow/execution URL.",
     );
   }
   const stored = config.instances[host];
@@ -79,7 +79,7 @@ export function resolveInstance(input: {
   if (!apiKey) {
     throw new CliError(
       "no-credentials",
-      `No API key for ${host}. Run \`n8n-locate login --url https://${host}\` or set N8N_API_KEY.`,
+      `No API key for ${host}. Run \`n8n-helper login --url https://${host}\` or set N8N_API_KEY.`,
     );
   }
   const baseUrl =
@@ -89,7 +89,7 @@ export function resolveInstance(input: {
   if (!baseUrl) {
     throw new CliError(
       "no-credentials",
-      `No base URL for ${host}. Run \`n8n-locate login --url https://${host}\`.`,
+      `No base URL for ${host}. Run \`n8n-helper login --url https://${host}\`.`,
     );
   }
   return { host, baseUrl, apiKey };

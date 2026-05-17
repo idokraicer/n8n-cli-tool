@@ -1,4 +1,4 @@
-# n8n-locate
+# n8n-helper
 
 A CLI that helps agents and humans locate n8n workflows and find values inside
 workflow execution data, over the n8n public API.
@@ -9,16 +9,16 @@ Requires [Bun](https://bun.sh).
 
 ```bash
 bun install
-bun link            # exposes the `n8n-locate` binary
+bun link            # exposes the `n8n-helper` binary
 ```
 
 ## Authenticate
 
 ```bash
-n8n-locate login --url https://n8n.example.com --key <your-n8n-api-key>
+n8n-helper login --url https://n8n.example.com --key <your-n8n-api-key>
 ```
 
-Credentials are stored in `~/.n8n-locate/config.json`. Alternatively set
+Credentials are stored in `~/.n8n-helper/config.json`. Alternatively set
 `N8N_API_KEY` and `N8N_BASE_URL` environment variables (a project `.env` works
 too) — these override the config file and are the recommended path for agents.
 
@@ -37,18 +37,18 @@ too) — these override the config file and are the recommended path for agents.
 
 ```bash
 # Find a workflow by partial name or webhook
-n8n-locate workflows "sales"
-n8n-locate workflows --field webhook "abc-123"
+n8n-helper workflows "sales"
+n8n-helper workflows --field webhook "abc-123"
 
 # Locate a value inside one execution
-n8n-locate search "500857721" "https://n8n.example.com/workflow/WF/executions/351694"
+n8n-helper search "500857721" "https://n8n.example.com/workflow/WF/executions/351694"
 
 # Search a whole workflow's recent executions
-n8n-locate search "500857721" "https://n8n.example.com/workflow/WF"
+n8n-helper search "500857721" "https://n8n.example.com/workflow/WF"
 
 # Inspect an execution, then drill into a node
-n8n-locate get 351694
-n8n-locate get 351694 --node "HTTP Request" --path json.order.id
+n8n-helper get 351694
+n8n-helper get 351694 --node "HTTP Request" --path json.order.id
 ```
 
 ## Output and exit codes

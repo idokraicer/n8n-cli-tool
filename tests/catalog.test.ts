@@ -13,12 +13,12 @@ import {
 let home: string;
 
 beforeEach(() => {
-  home = mkdtempSync(join(tmpdir(), "n8n-locate-cat-"));
-  process.env.N8N_LOCATE_HOME = home;
+  home = mkdtempSync(join(tmpdir(), "n8n-helper-cat-"));
+  process.env.N8N_HELPER_HOME = home;
 });
 afterEach(() => {
   rmSync(home, { recursive: true, force: true });
-  delete process.env.N8N_LOCATE_HOME;
+  delete process.env.N8N_HELPER_HOME;
 });
 
 test("projectWorkflow keeps searchable fields and drops the node graph", () => {

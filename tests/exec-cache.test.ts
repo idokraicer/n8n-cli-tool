@@ -8,12 +8,12 @@ import { execCachePath } from "../src/config";
 let home: string;
 
 beforeEach(() => {
-  home = mkdtempSync(join(tmpdir(), "n8n-locate-ec-"));
-  process.env.N8N_LOCATE_HOME = home;
+  home = mkdtempSync(join(tmpdir(), "n8n-helper-ec-"));
+  process.env.N8N_HELPER_HOME = home;
 });
 afterEach(() => {
   rmSync(home, { recursive: true, force: true });
-  delete process.env.N8N_LOCATE_HOME;
+  delete process.env.N8N_HELPER_HOME;
 });
 
 function clientReturning(execution: any) {

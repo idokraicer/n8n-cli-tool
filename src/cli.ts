@@ -25,7 +25,7 @@ async function execute(
 const program = new Command();
 
 program
-  .name("n8n-locate")
+  .name("n8n-helper")
   .description("Locate n8n workflows and execution data via the n8n public API")
   .version("0.1.0")
   .option("--json", "force JSON output")

@@ -15,15 +15,15 @@ import { CliError } from "../src/types";
 let home: string;
 
 beforeEach(() => {
-  home = mkdtempSync(join(tmpdir(), "n8n-locate-"));
-  process.env.N8N_LOCATE_HOME = home;
+  home = mkdtempSync(join(tmpdir(), "n8n-helper-"));
+  process.env.N8N_HELPER_HOME = home;
   delete process.env.N8N_API_KEY;
   delete process.env.N8N_BASE_URL;
 });
 
 afterEach(() => {
   rmSync(home, { recursive: true, force: true });
-  delete process.env.N8N_LOCATE_HOME;
+  delete process.env.N8N_HELPER_HOME;
 });
 
 test("loadConfig returns an empty config when no file exists", () => {

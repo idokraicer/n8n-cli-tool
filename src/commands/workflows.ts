@@ -42,7 +42,7 @@ export async function runWorkflows(
     if (opts.sync === false) {
       throw new CliError(
         "no-catalog",
-        `No workflow catalog for ${instance.host}. Run \`n8n-locate sync\` first.`,
+        `No workflow catalog for ${instance.host}. Run \`n8n-helper sync\` first.`,
       );
     }
     progress(`Syncing workflow catalog for ${instance.host}...`, quiet);

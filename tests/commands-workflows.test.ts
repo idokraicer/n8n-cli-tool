@@ -16,14 +16,14 @@ const fakeClient = {
 };
 
 beforeEach(() => {
-  home = mkdtempSync(join(tmpdir(), "n8n-locate-wf-"));
-  process.env.N8N_LOCATE_HOME = home;
+  home = mkdtempSync(join(tmpdir(), "n8n-helper-wf-"));
+  process.env.N8N_HELPER_HOME = home;
   process.env.N8N_BASE_URL = "https://h.co";
   process.env.N8N_API_KEY = "K";
 });
 afterEach(() => {
   rmSync(home, { recursive: true, force: true });
-  delete process.env.N8N_LOCATE_HOME;
+  delete process.env.N8N_HELPER_HOME;
   delete process.env.N8N_BASE_URL;
   delete process.env.N8N_API_KEY;
 });
