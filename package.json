@@ -1,0 +1,14 @@
+{
+  "name": "n8n-locate",
+  "description": "CLI to locate n8n workflows and execution data via the n8n public API",
+  "type": "module",
+  "bin": { "n8n-locate": "./src/cli.ts" },
+  "scripts": {
+    "start": "bun src/cli.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": { "@types/bun": "^1.3.9" },
+  "peerDependencies": { "typescript": "^5" },
+  "dependencies": { "commander": "^14.0.3" }
+}
