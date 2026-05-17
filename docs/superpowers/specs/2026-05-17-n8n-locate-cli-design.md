@@ -212,7 +212,8 @@ n8n resource is referenced.
 n8n-locate login --url <base-url> [--key <api-key>] [--default]
 ```
 
-- Prompts for `--key` with hidden input if omitted.
+- Prompts for `--key` on stdin if omitted (the `--key` flag or `N8N_API_KEY`
+  is the normal path; the prompt is a convenience fallback).
 - Validates the key with `GET /api/v1/workflows?limit=1` before saving.
 - Writes/updates the host entry in `config.json`. The first instance saved
   becomes `defaultInstance`; `--default` re-points it.
