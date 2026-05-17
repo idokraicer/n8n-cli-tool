@@ -9,7 +9,7 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-function clientWith(fetchImpl: typeof fetch): N8nClient {
+function clientWith(fetchImpl: (url: string, init?: RequestInit) => Promise<Response>): N8nClient {
   return new N8nClient({
     baseUrl: "https://h.co",
     apiKey: "K",

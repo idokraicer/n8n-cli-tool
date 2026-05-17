@@ -1,10 +1,12 @@
 import { CliError } from "./types";
 
+type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
+
 interface ClientOptions {
   baseUrl: string;
   apiKey: string;
   timeoutMs?: number;
-  fetchImpl?: typeof fetch;
+  fetchImpl?: FetchLike;
   maxRetries?: number;
   retryBaseMs?: number;
 }
@@ -26,7 +28,7 @@ export class N8nClient {
   private readonly baseUrl: string;
   private readonly apiKey: string;
   private readonly timeoutMs: number;
-  private readonly fetchImpl: typeof fetch;
+  private readonly fetchImpl: FetchLike;
   private readonly maxRetries: number;
   private readonly retryBaseMs: number;
 
@@ -34,7 +36,7 @@ export class N8nClient {
     this.baseUrl = opts.baseUrl.replace(/\/+$/, "");
     this.apiKey = opts.apiKey;
     this.timeoutMs = opts.timeoutMs ?? 30_000;
-    this.fetchImpl = opts.fetchImpl ?? fetch;
+    this.fetchImpl = opts.fetchImpl ?? (fetch as FetchLike);
     this.maxRetries = opts.maxRetries ?? 3;
     this.retryBaseMs = opts.retryBaseMs ?? 500;
   }
