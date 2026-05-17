@@ -71,3 +71,20 @@ test("runSearch rejects conflicting match modes", async () => {
     ),
   ).rejects.toMatchObject({ code: "bad-arguments" });
 });
+
+test("runSearch returns exit 0 for a workflow target with matches", async () => {
+  const client = {
+    listExecutions: async () => ({
+      data: [{ id: 351694 }, { id: 351695 }],
+      nextCursor: null,
+    }),
+    getExecution: async () => execution,
+  };
+  const code = await runSearch(
+    "500857721",
+    "WF",
+    { json: true, quiet: true, maxMatches: "100", truncate: "200", limit: "20" },
+    () => client as any,
+  );
+  expect(code).toBe(0);
+});

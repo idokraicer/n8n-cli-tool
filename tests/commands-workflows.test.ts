@@ -4,7 +4,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runWorkflows } from "../src/commands/workflows";
 import { buildCatalog } from "../src/catalog";
-import { CliError } from "../src/types";
 
 let home: string;
 const fakeClient = {
@@ -38,5 +37,5 @@ test("runWorkflows searches an existing catalog", async () => {
 test("runWorkflows errors when --no-sync is set and no catalog exists", async () => {
   await expect(
     runWorkflows(undefined, { json: true, quiet: true, sync: false, limit: "50", offset: "0" }, () => fakeClient as any),
-  ).rejects.toBeInstanceOf(CliError);
+  ).rejects.toMatchObject({ code: "no-catalog" });
 });

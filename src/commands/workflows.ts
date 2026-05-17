@@ -1,4 +1,4 @@
-import { CliError, type ResolvedInstance } from "../types";
+import { CliError, type CatalogManifest, type ResolvedInstance } from "../types";
 import { resolveInstance } from "../config";
 import { N8nClient } from "../client";
 import {
@@ -36,6 +36,7 @@ export async function runWorkflows(
   const quiet = opts.quiet ?? false;
 
   const needsSync = opts.refresh || !catalogExists(instance.host);
+  let manifest: CatalogManifest | null;
   if (needsSync) {
     if (opts.sync === false) {
       throw new CliError(
@@ -44,14 +45,19 @@ export async function runWorkflows(
       );
     }
     progress(`Syncing workflow catalog for ${instance.host}...`, quiet);
-    await buildCatalog(clientFactory(instance), instance.host, instance.baseUrl);
+    manifest = await buildCatalog(
+      clientFactory(instance),
+      instance.host,
+      instance.baseUrl,
+    );
+  } else {
+    manifest = readManifest(instance.host);
   }
 
-  const manifest = readManifest(instance.host);
+  const ageSeconds = manifest
+    ? Math.round((Date.now() - new Date(manifest.syncedAt).getTime()) / 1000)
+    : null;
   if (manifest) {
-    const ageSeconds = Math.round(
-      (Date.now() - new Date(manifest.syncedAt).getTime()) / 1000,
-    );
     progress(
       `Catalog: ${manifest.workflowCount} workflows, synced ${ageSeconds}s ago.`,
       quiet,
@@ -74,9 +80,7 @@ export async function runWorkflows(
       ? {
           syncedAt: manifest.syncedAt,
           workflowCount: manifest.workflowCount,
-          ageSeconds: Math.round(
-            (Date.now() - new Date(manifest.syncedAt).getTime()) / 1000,
-          ),
+          ageSeconds,
         }
       : null,
     workflows: result.rows,
