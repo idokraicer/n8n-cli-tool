@@ -3,7 +3,6 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runSearch } from "../src/commands/search";
-import { CliError } from "../src/types";
 
 let home: string;
 
