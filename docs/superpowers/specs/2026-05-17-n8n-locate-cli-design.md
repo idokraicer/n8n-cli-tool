@@ -37,7 +37,8 @@ n8n-locate search "500857721" "https://n8n.example.com/workflow/NDiulczinIqHUJJF
 - **Raycast-ready:** list/search commands return presentation-agnostic JSON
   with canonical URLs; core modules are decoupled from the CLI so a future
   Raycast extension can shell out to the binary *or* import the modules.
-- **Human-friendly:** readable output when run interactively.
+- **Legible:** pretty-printed JSON output reads cleanly in a terminal; richer
+  human formatting is a post-v1 enhancement.
 - **Consistent with `make-fixer`:** `commander`, a `login` command writing
   global config, `--json` everywhere, URL-or-ID arguments.
 
@@ -67,9 +68,11 @@ Contractual — agents and the Raycast wrapper depend on these.
 1. **stdout/stderr separation.** In JSON mode, stdout carries *only* the single
    final JSON document. Progress, warnings, and human-readable errors go to
    stderr. `n8n-locate ... --json | jq` is always safe.
-2. **Output mode.** JSON when stdout is not a TTY (piped — how agents and
-   Raycast invoke it); human-readable when stdout is a TTY. `--json` / `--text`
-   force it.
+2. **Output.** All command data output is pretty-printed JSON on stdout. The
+   `--json` / `--text` flags and TTY detection control how *errors* are
+   presented — a JSON error envelope (piped or `--json`) or a plain stderr line
+   (a TTY or `--text`). Dedicated human-formatted rendering of command data is
+   a post-v1 enhancement; pretty-printed JSON stays legible in a terminal.
 3. **Exit codes.** `0` success (`search`: success *with* ≥1 match); `1` =
    `search` only, success with zero matches; `2` any error.
 4. **JSON error envelope.** On error in JSON mode, stdout receives
