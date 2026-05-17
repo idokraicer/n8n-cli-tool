@@ -93,9 +93,11 @@ than one is an error (exit code 2).
 4. **Normalize execution data** (`n8n-data.ts`): n8n returns execution data
    under `data.resultData.runData`, keyed by node name. Each node maps to an
    array of runs; each run has `data.main[<output>][<item>]`, where each item is
-   `{ json: {...}, binary?: {...} }`. Some n8n versions return the top-level
-   `data` field as a JSON string — detect and parse that fallback. Produce a
-   flat list of searchable units: `{ node, runIndex, itemIndex, json, binary }`.
+   `{ index, json: {...}, pairedItem, binary?: {...} }`. Only `json` and
+   `binary` are searched; `index` and `pairedItem` are ignored. Some n8n
+   versions return the top-level `data` field as a JSON string — detect and
+   parse that fallback. Produce a flat list of searchable units:
+   `{ node, runIndex, outputIndex, itemIndex, json, binary }`.
 5. **Search** (`search.ts`): for each unit, recursively walk the `json` object,
    tracking the JSON path. Also search binary metadata fields (`fileName`,
    `mimeType`, `fileExtension`) but not base64 `data` blobs. Apply the selected
@@ -223,12 +225,24 @@ access.
 - `client.ts`: integration-style tests against a mocked fetch (401, 404, ok with
   data, ok without data).
 
+## Verified Against Live Instance (2026-05-17)
+
+Probed `n8n.example.com` execution `351694` with a public API key:
+
+- `GET /api/v1/executions/{id}?includeData=true` with header `X-N8N-API-KEY`
+  returns HTTP 200 with the full execution object.
+- Top-level fields include `id`, `workflowId`, `status`, `mode`, `finished`,
+  `startedAt`, `stoppedAt`, `data`, `workflowData`.
+- `data` is returned as a JSON object on this instance (not stringified); the
+  stringified fallback is still handled defensively for older n8n versions.
+- `data.resultData.runData` is keyed by node name; each value is an array of
+  runs; each run has `data.main[<output>][<item>]`; each item is
+  `{ index, json, pairedItem }` (plus `binary` when binary data is present).
+- Run objects also carry `metadata`, `source`, `executionStatus`,
+  `executionTime`, `startTime` — not searched.
+
 ## Open Assumptions
 
-- The n8n public API path is `/api/v1/executions/{id}` with `includeData=true`
-  and header `X-N8N-API-KEY`. The implementation plan will verify the exact
-  parameter and data-field behavior against the target n8n version before
-  finalizing `client.ts` and `n8n-data.ts`.
 - v1 searches a single execution; workflow-wide search is deferred.
 - The `~/.n8n-locate.json` config file is a convenience and will be included
   only if it does not meaningfully expand scope; `N8N_API_KEY` is the baseline.
