@@ -51,7 +51,6 @@ export function searchUnits(
   let truncated = false;
 
   const scalar = (node: unknown): node is string | number | boolean =>
-    node === null ||
     ["string", "number", "boolean"].includes(typeof node);
 
   for (const unit of units) {

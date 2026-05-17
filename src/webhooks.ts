@@ -18,7 +18,7 @@ export function extractWebhooks(
   const entries: WebhookEntry[] = [];
   for (const node of nodes) {
     if (!isWebhookNode(node)) continue;
-    const path = String(node?.parameters?.path ?? node?.webhookId ?? "");
+    const path = String(node?.parameters?.path || node?.webhookId || "");
     const method = String(node?.parameters?.httpMethod ?? "GET").toUpperCase();
     entries.push({
       node: String(node?.name ?? ""),

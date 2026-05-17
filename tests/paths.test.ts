@@ -42,3 +42,16 @@ test("reports a missing path as not found", () => {
     value: undefined,
   });
 });
+
+test("round-trips a key containing a closing bracket", () => {
+  const segments = ["key]broken"];
+  expect(parsePath(formatPath(segments))).toEqual(segments);
+});
+
+test("throws on an unclosed bracket", () => {
+  expect(() => parsePath("json[unclosed")).toThrow();
+});
+
+test("parses the root path back to an empty segment list", () => {
+  expect(parsePath("json")).toEqual([]);
+});

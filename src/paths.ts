@@ -26,15 +26,32 @@ export function parsePath(path: string): Array<string | number> {
       if (!m) throw new Error(`Invalid path segment near: ${rest}`);
       segments.push(m[1]);
       rest = rest.slice(m[0].length);
+    } else if (rest.startsWith('["')) {
+      let i = 2;
+      while (i < rest.length) {
+        if (rest[i] === "\\") {
+          i += 2;
+          continue;
+        }
+        if (rest[i] === '"') {
+          i++;
+          break;
+        }
+        i++;
+      }
+      if (i >= rest.length || rest[i] !== "]") {
+        throw new Error(`Malformed string key in path: ${path}`);
+      }
+      segments.push(JSON.parse(rest.slice(1, i)) as string);
+      rest = rest.slice(i + 1);
     } else if (rest.startsWith("[")) {
       const end = rest.indexOf("]");
       if (end === -1) throw new Error(`Unclosed bracket in path: ${path}`);
       const inner = rest.slice(1, end);
-      if (/^\d+$/.test(inner)) {
-        segments.push(Number(inner));
-      } else {
-        segments.push(JSON.parse(inner) as string);
+      if (!/^\d+$/.test(inner)) {
+        throw new Error(`Expected an integer index in path: ${path}`);
       }
+      segments.push(Number(inner));
       rest = rest.slice(end + 1);
     } else {
       throw new Error(`Invalid path near: ${rest}`);
