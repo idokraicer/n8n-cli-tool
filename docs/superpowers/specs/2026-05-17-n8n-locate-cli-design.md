@@ -112,9 +112,9 @@ than one is an error (exit code 2).
   - substring (default): `haystack.includes(needle)`
   - `--exact`: `haystack === needle`
   - `--regex`: `new RegExp(value).test(haystack)`
-  - case sensitivity applies to substring and exact modes; regex case is
-    controlled by the user via inline flags or the `--case-sensitive` flag
-    toggling the `i` flag.
+  - `--case-sensitive` applies uniformly to all three modes. In regex mode,
+    the default (case-insensitive) adds the `i` flag to the compiled regex;
+    `--case-sensitive` omits it.
 - Object keys are not searched, only values.
 - Each match records: node name, run index, item index, JSON path, and the
   matched value.
