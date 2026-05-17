@@ -16,6 +16,7 @@ import {
 } from "../n8n-data";
 import { searchUnits, type SearchOptions } from "../search";
 import { emitJson, progress } from "../format";
+import { requireIntOption } from "../options";
 
 export interface SearchCmdOpts {
   node?: string;
@@ -62,7 +63,13 @@ async function searchOneExecution(
   value: string,
   searchOpts: SearchOptions,
   cacheOpts: { refresh: boolean; noCache: boolean },
-): Promise<{ matches: Match[]; itemsSearched: number; nodesSearched: number; truncated: boolean }> {
+): Promise<{
+  matches: Match[];
+  itemsSearched: number;
+  nodesSearched: number;
+  truncated: boolean;
+  workflowId: string;
+}> {
   const raw = await getExecutionCached(client, host, executionId, cacheOpts);
   const info = extractExecutionInfo(raw, baseUrl);
   const data = normalizeExecutionData(raw);
@@ -77,6 +84,7 @@ async function searchOneExecution(
     itemsSearched: result.itemsSearched,
     nodesSearched: nodes.size,
     truncated: result.truncated,
+    workflowId: info.workflowId,
   };
 }
 
@@ -101,9 +109,12 @@ export async function runSearch(
     mode,
     caseSensitive: opts.caseSensitive ?? false,
     node: opts.node,
-    maxMatches: Number(opts.maxMatches ?? "100"),
+    maxMatches: requireIntOption("max-matches", opts.maxMatches ?? "100"),
     context: opts.context ?? false,
-    truncate: opts.truncate === false ? null : Number(opts.truncate ?? "200"),
+    truncate:
+      opts.truncate === false
+        ? null
+        : requireIntOption("truncate", opts.truncate ?? "200"),
   };
   const cacheOpts = {
     refresh: opts.refresh ?? false,
@@ -115,6 +126,7 @@ export async function runSearch(
   let nodesSearched = 0;
   let executionsSearched = 0;
   let truncated = false;
+  let executionWorkflowId: string | undefined;
 
   if (kind === "execution") {
     const executionId = parsed?.executionId ?? target;
@@ -133,9 +145,10 @@ export async function runSearch(
     nodesSearched = r.nodesSearched;
     executionsSearched = 1;
     truncated = r.truncated;
+    executionWorkflowId = r.workflowId;
   } else {
     const workflowId = parsed?.workflowId ?? target;
-    const limit = Number(opts.limit ?? "20");
+    const limit = requireIntOption("limit", opts.limit ?? "20");
     progress(
       `Listing up to ${limit} executions for workflow ${workflowId}...`,
       quiet,
@@ -184,6 +197,7 @@ export async function runSearch(
         ? {
             type: "execution",
             executionId: parsed?.executionId ?? target,
+            workflowId: executionWorkflowId,
           }
         : { type: "workflow", workflowId: parsed?.workflowId ?? target },
     matches: capped,

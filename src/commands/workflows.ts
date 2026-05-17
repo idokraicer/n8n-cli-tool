@@ -8,6 +8,7 @@ import {
   searchCatalog,
 } from "../catalog";
 import { emitJson, progress } from "../format";
+import { requireIntOption } from "../options";
 
 export interface WorkflowsOpts {
   field?: "id" | "name" | "webhook" | "tag";
@@ -64,8 +65,8 @@ export async function runWorkflows(
     );
   }
 
-  const limit = Number(opts.limit ?? "50");
-  const offset = Number(opts.offset ?? "0");
+  const limit = requireIntOption("limit", opts.limit ?? "50");
+  const offset = requireIntOption("offset", opts.offset ?? "0");
   const result = await searchCatalog(instance.host, {
     query,
     field: opts.field,

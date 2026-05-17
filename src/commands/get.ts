@@ -12,6 +12,7 @@ import {
 } from "../n8n-data";
 import { parsePath, resolvePath } from "../paths";
 import { emitJson, progress } from "../format";
+import { optionalIntOption } from "../options";
 
 export interface GetOpts {
   node?: string;
@@ -32,10 +33,6 @@ type ClientFactory = (instance: ResolvedInstance) => N8nClient;
 
 const defaultClientFactory: ClientFactory = (instance) =>
   new N8nClient({ baseUrl: instance.baseUrl, apiKey: instance.apiKey });
-
-function maybe(value: string | undefined): number | undefined {
-  return value === undefined ? undefined : Number(value);
-}
 
 export async function runGet(
   target: string,
@@ -78,9 +75,9 @@ export async function runGet(
       },
     };
   } else {
-    const runFilter = maybe(opts.run);
-    const outputFilter = maybe(opts.output);
-    const itemFilter = maybe(opts.item);
+    const runFilter = optionalIntOption("run", opts.run);
+    const outputFilter = optionalIntOption("output", opts.output);
+    const itemFilter = optionalIntOption("item", opts.item);
     const units = extractSearchUnits(data, opts.node).filter(
       (u) =>
         (runFilter === undefined || u.runIndex === runFilter) &&

@@ -3,6 +3,7 @@ import { resolveInstance } from "../config";
 import { N8nClient } from "../client";
 import { parseN8nUrl, buildWorkflowUrl, buildExecutionUrl } from "../url";
 import { emitJson, progress } from "../format";
+import { requireIntOption } from "../options";
 
 export interface ExecutionsOpts {
   status?: "success" | "error" | "waiting";
@@ -41,7 +42,7 @@ export async function runExecutions(
   });
   const client = clientFactory(instance);
   const quiet = opts.quiet ?? false;
-  const limit = Number(opts.limit ?? "20");
+  const limit = requireIntOption("limit", opts.limit ?? "20");
 
   progress(`Listing executions for workflow ${workflowId}...`, quiet);
 
@@ -75,7 +76,7 @@ export async function runExecutions(
       stoppedAt: e.stoppedAt ?? null,
       url: buildExecutionUrl(instance.baseUrl, workflowId, String(e.id)),
     })),
-    nextCursor: opts.all ? null : nextCursor,
+    nextCursor,
     summary: { count: rows.length },
   });
   return 0;
