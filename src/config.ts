@@ -82,7 +82,10 @@ export function resolveInstance(input: {
       `No API key for ${host}. Run \`n8n-locate login --url https://${host}\` or set N8N_API_KEY.`,
     );
   }
-  const baseUrl = input.baseUrl ?? stored?.baseUrl ?? envBaseUrl;
+  const baseUrl =
+    input.baseUrl ??
+    stored?.baseUrl ??
+    (envHost === host ? envBaseUrl : undefined);
   if (!baseUrl) {
     throw new CliError(
       "no-credentials",

@@ -71,3 +71,29 @@ test("a 429 is retried then succeeds", async () => {
   expect(calls).toBe(2);
   expect(result).toEqual({ id: 5 });
 });
+
+test("429s past the retry limit throw rate-limited", async () => {
+  const client = new N8nClient({
+    baseUrl: "https://h.co",
+    apiKey: "K",
+    fetchImpl: async () => jsonResponse({}, 429),
+    maxRetries: 2,
+    retryBaseMs: 1,
+  });
+  try {
+    await client.getExecution("5");
+    throw new Error("should have thrown");
+  } catch (e) {
+    expect((e as CliError).code).toBe("rate-limited");
+  }
+});
+
+test("a 403 maps to code forbidden", async () => {
+  const client = clientWith(async () => jsonResponse({}, 403));
+  try {
+    await client.getExecution("5");
+    throw new Error("should have thrown");
+  } catch (e) {
+    expect((e as CliError).code).toBe("forbidden");
+  }
+});

@@ -97,10 +97,14 @@ export async function* streamCatalog(host: string): AsyncGenerator<WorkflowRow> 
     input: createReadStream(paths.workflowsPath, "utf8"),
     crlfDelay: Infinity,
   });
-  for await (const line of rl) {
-    const trimmed = line.trim();
-    if (trimmed.length === 0) continue;
-    yield JSON.parse(trimmed) as WorkflowRow;
+  try {
+    for await (const line of rl) {
+      const trimmed = line.trim();
+      if (trimmed.length === 0) continue;
+      yield JSON.parse(trimmed) as WorkflowRow;
+    }
+  } finally {
+    rl.close();
   }
 }
 
@@ -135,14 +139,16 @@ export async function searchCatalog(
   host: string,
   q: CatalogQuery,
 ): Promise<{ rows: WorkflowRow[]; totalMatches: number }> {
-  const matched: WorkflowRow[] = [];
+  const window: WorkflowRow[] = [];
+  const windowEnd = q.offset + q.limit;
+  let totalMatches = 0;
   for await (const row of streamCatalog(host)) {
     if (q.active !== undefined && row.active !== q.active) continue;
     if (q.query && !rowMatches(row, q.query, q.field)) continue;
-    matched.push(row);
+    if (totalMatches >= q.offset && totalMatches < windowEnd) {
+      window.push(row);
+    }
+    totalMatches++;
   }
-  return {
-    rows: matched.slice(q.offset, q.offset + q.limit),
-    totalMatches: matched.length,
-  };
+  return { rows: window, totalMatches };
 }
