@@ -189,9 +189,9 @@ to hundreds of KB). To stay memory-bounded and avoid re-fetching:
 
 - A fetched execution is written to
   `cache/<host>/executions/<id>.json` and re-read from there on later runs.
-- Only **finished** executions are cached; finished executions are immutable in
-  n8n, so cache entries never expire. Running/waiting executions are always
-  fetched live.
+- Only **finished** executions are cached. Cache entries expire after 14 days
+  (checked via file mtime); a stale entry is re-fetched and overwritten.
+  Running/waiting executions are always fetched live.
 - `--refresh` forces a re-fetch; `--no-cache` skips reading and writing the
   cache.
 - Workflow-wide `search` processes executions with a **bounded concurrency**

@@ -1,5 +1,5 @@
 import { test, expect, beforeEach, afterEach } from "bun:test";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getExecutionCached } from "../src/exec-cache";
@@ -52,4 +52,22 @@ test("noCache neither reads nor writes the cache", async () => {
   const client = clientReturning({ id: 9, finished: true, data: {} });
   await getExecutionCached(client as any, "h.co", "9", { refresh: false, noCache: true });
   expect(existsSync(execCachePath("h.co", "9"))).toBe(false);
+});
+
+test("a cache entry older than the 14-day TTL is re-fetched", async () => {
+  const client = clientReturning({ id: 9, finished: true, data: {} });
+  await getExecutionCached(client as any, "h.co", "9", { refresh: false, noCache: false });
+  const stale = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000);
+  utimesSync(execCachePath("h.co", "9"), stale, stale);
+  await getExecutionCached(client as any, "h.co", "9", { refresh: false, noCache: false });
+  expect(client.callCount()).toBe(2);
+});
+
+test("a cache entry within the TTL is reused", async () => {
+  const client = clientReturning({ id: 9, finished: true, data: {} });
+  await getExecutionCached(client as any, "h.co", "9", { refresh: false, noCache: false });
+  const recent = new Date(Date.now() - 13 * 24 * 60 * 60 * 1000);
+  utimesSync(execCachePath("h.co", "9"), recent, recent);
+  await getExecutionCached(client as any, "h.co", "9", { refresh: false, noCache: false });
+  expect(client.callCount()).toBe(1);
 });

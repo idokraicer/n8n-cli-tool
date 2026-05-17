@@ -2,11 +2,14 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { dirname } from "node:path";
 import type { N8nClient } from "./client";
 import { execCachePath } from "./config";
+
+const CACHE_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 
 export async function getExecutionCached(
   client: N8nClient,
@@ -17,11 +20,15 @@ export async function getExecutionCached(
   const path = execCachePath(host, executionId);
 
   if (!opts.refresh && !opts.noCache && existsSync(path)) {
-    try {
-      return JSON.parse(readFileSync(path, "utf8"));
-    } catch {
-      // Corrupt cache entry — fall through to a fresh fetch.
+    const ageMs = Date.now() - statSync(path).mtimeMs;
+    if (ageMs <= CACHE_TTL_MS) {
+      try {
+        return JSON.parse(readFileSync(path, "utf8"));
+      } catch {
+        // Corrupt cache entry — fall through to a fresh fetch.
+      }
     }
+    // Older than the TTL — fall through to re-fetch and overwrite.
   }
 
   const execution = await client.getExecution(executionId);
