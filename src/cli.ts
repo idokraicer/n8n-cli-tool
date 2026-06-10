@@ -142,6 +142,10 @@ program
   .option("--run <n>", "narrow to a run index")
   .option("--output <n>", "narrow to an output branch index")
   .option("--item <n>", "narrow to an item index")
+  .option(
+    "--trace",
+    "walk the parent-execution chain to show what triggered this execution",
+  )
   .option("--refresh", "re-fetch the execution, bypassing the cache")
   .option("--no-cache", "do not read or write the execution cache")
   .option("--out <file>", "write JSON output to a file")

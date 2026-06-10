@@ -94,3 +94,25 @@ export function extractExecutionInfo(
     url: buildExecutionUrl(baseUrl, workflowId, id),
   };
 }
+
+export interface ParentExecutionRef {
+  executionId: string;
+  workflowId: string;
+  source: string | null;
+  triggerNode: string | null;
+}
+
+/** The sub-workflow link n8n stamps into execution data, when one exists. */
+export function extractParentExecution(data: any): ParentExecutionRef | null {
+  const parent = data?.parentExecution;
+  if (!parent?.executionId || !parent?.workflowId) return null;
+  const context = parent.executionContext ?? {};
+  return {
+    executionId: String(parent.executionId),
+    workflowId: String(parent.workflowId),
+    source: context.source ? String(context.source) : null,
+    triggerNode: context.triggerNode?.name
+      ? String(context.triggerNode.name)
+      : null,
+  };
+}

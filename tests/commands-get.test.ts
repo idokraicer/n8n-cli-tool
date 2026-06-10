@@ -65,3 +65,96 @@ test("runGet throws when a path resolves to nothing", async () => {
     runGet("351694", { json: true, quiet: true, node: "HTTP Request", path: "json.missing" }, () => client as any),
   ).rejects.toMatchObject({ code: "bad-arguments" });
 });
+
+function chainExecution(
+  id: string,
+  workflowId: string,
+  name: string,
+  parent?: { executionId: string; workflowId: string },
+) {
+  return {
+    id,
+    workflowId,
+    status: "success",
+    mode: parent ? "integrated" : "webhook",
+    finished: true,
+    startedAt: "S",
+    stoppedAt: "T",
+    workflowData: { name },
+    data: {
+      resultData: { runData: {} },
+      ...(parent
+        ? {
+            parentExecution: {
+              ...parent,
+              executionContext: {
+                source: "webhook",
+                triggerNode: { name: "Webhook" },
+              },
+            },
+          }
+        : {}),
+    },
+  };
+}
+
+test("runGet --trace walks the parent chain root-first", async () => {
+  const executions: Record<string, unknown> = {
+    "3": chainExecution("3", "WF-C", "Child", { executionId: "2", workflowId: "WF-B" }),
+    "2": chainExecution("2", "WF-B", "Middle", { executionId: "1", workflowId: "WF-A" }),
+    "1": chainExecution("1", "WF-A", "Root"),
+  };
+  const client = { getExecution: async (id: string) => executions[id] };
+  const out = join(home, "trace.json");
+  const code = await runGet(
+    "3",
+    { json: true, quiet: true, trace: true, cache: false, out },
+    () => client as any,
+  );
+  expect(code).toBe(0);
+  const payload = JSON.parse(await Bun.file(out).text());
+  expect(payload.trace.map((e: any) => e.executionId)).toEqual(["1", "2", "3"]);
+  expect(payload.trace[0].triggeredBy).toBeNull();
+  expect(payload.trace[0].mode).toBe("webhook");
+  expect(payload.trace[2].triggeredBy).toMatchObject({
+    executionId: "2",
+    workflowId: "WF-B",
+    source: "webhook",
+    triggerNode: "Webhook",
+  });
+  expect(payload.summary).toMatchObject({ depth: 3, truncated: false });
+  expect(payload.summary.root).toMatchObject({ executionId: "1", workflowName: "Root" });
+});
+
+test("runGet --trace handles an execution with no parent", async () => {
+  const client = {
+    getExecution: async () => chainExecution("9", "WF", "Solo"),
+  };
+  const out = join(home, "trace.json");
+  const code = await runGet(
+    "9",
+    { json: true, quiet: true, trace: true, cache: false, out },
+    () => client as any,
+  );
+  expect(code).toBe(0);
+  const payload = JSON.parse(await Bun.file(out).text());
+  expect(payload.trace).toHaveLength(1);
+  expect(payload.summary.depth).toBe(1);
+});
+
+test("runGet --trace stops on a parent cycle", async () => {
+  const a = chainExecution("1", "WF-A", "A", { executionId: "2", workflowId: "WF-B" });
+  const b = chainExecution("2", "WF-B", "B", { executionId: "1", workflowId: "WF-A" });
+  const client = {
+    getExecution: async (id: string) => (id === "1" ? a : b),
+  };
+  const out = join(home, "trace.json");
+  const code = await runGet(
+    "1",
+    { json: true, quiet: true, trace: true, cache: false, out },
+    () => client as any,
+  );
+  expect(code).toBe(0);
+  const payload = JSON.parse(await Bun.file(out).text());
+  expect(payload.trace).toHaveLength(2);
+});

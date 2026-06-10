@@ -9,6 +9,8 @@ import {
   extractSearchUnits,
   extractNodeSummaries,
   extractExecutionInfo,
+  extractParentExecution,
+  type ParentExecutionRef,
 } from "../n8n-data";
 import { parsePath, resolvePath } from "../paths";
 import { emitJson, progress } from "../format";
@@ -20,6 +22,7 @@ export interface GetOpts {
   run?: string;
   output?: string;
   item?: string;
+  trace?: boolean;
   refresh?: boolean;
   cache?: boolean;
   out?: string;
@@ -53,6 +56,10 @@ export async function runGet(
   });
   const client = clientFactory(instance);
   const quiet = opts.quiet ?? false;
+
+  if (opts.trace) {
+    return runTrace(executionId, instance, client, opts);
+  }
 
   progress(`Fetching execution ${executionId}...`, quiet);
   const raw = await getExecutionCached(client, instance.host, executionId, {
@@ -115,6 +122,92 @@ export async function runGet(
 
     payload = { execution: info, node: opts.node, items };
   }
+
+  if (opts.out) {
+    writeFileSync(opts.out, JSON.stringify(payload, null, 2) + "\n");
+    progress(`Wrote output to ${opts.out}`, quiet);
+  } else {
+    emitJson(payload);
+  }
+  return 0;
+}
+
+const TRACE_DEPTH_CAP = 20;
+
+interface TraceEntry {
+  executionId: string;
+  workflowId: string;
+  workflowName: string | null;
+  status: string;
+  mode: string;
+  startedAt: string | null;
+  url: string;
+  triggeredBy: ParentExecutionRef | null;
+}
+
+async function runTrace(
+  executionId: string,
+  instance: ResolvedInstance,
+  client: N8nClient,
+  opts: GetOpts,
+): Promise<number> {
+  const quiet = opts.quiet ?? false;
+  const chain: TraceEntry[] = [];
+  const seen = new Set<string>();
+  let truncated = false;
+  let currentId: string | undefined = executionId;
+
+  while (currentId && !seen.has(currentId)) {
+    if (chain.length >= TRACE_DEPTH_CAP) {
+      truncated = true;
+      break;
+    }
+    seen.add(currentId);
+    progress(`Fetching execution ${currentId}...`, quiet);
+    const raw = await getExecutionCached(client, instance.host, currentId, {
+      refresh: opts.refresh ?? false,
+      noCache: opts.cache === false,
+    });
+    const info = extractExecutionInfo(raw, instance.baseUrl);
+    let parent: ParentExecutionRef | null = null;
+    try {
+      parent = extractParentExecution(normalizeExecutionData(raw));
+    } catch {
+      // Execution data pruned: the chain ends here.
+    }
+    chain.push({
+      executionId: info.id,
+      workflowId: info.workflowId,
+      workflowName: (raw as any)?.workflowData?.name ?? null,
+      status: info.status,
+      mode: info.mode,
+      startedAt: info.startedAt,
+      url: info.url,
+      triggeredBy: parent,
+    });
+    currentId = parent?.executionId;
+  }
+
+  // Root first, so the chain reads in trigger order.
+  chain.reverse();
+  const root = chain[0];
+  const payload = {
+    execution: { id: executionId },
+    trace: chain,
+    summary: {
+      depth: chain.length,
+      truncated,
+      root: root
+        ? {
+            executionId: root.executionId,
+            workflowId: root.workflowId,
+            workflowName: root.workflowName,
+            mode: root.mode,
+            url: root.url,
+          }
+        : null,
+    },
+  };
 
   if (opts.out) {
     writeFileSync(opts.out, JSON.stringify(payload, null, 2) + "\n");
