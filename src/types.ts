@@ -1,6 +1,10 @@
 export interface InstanceConfig {
   baseUrl: string;
   apiKey: string;
+  email?: string;
+  password?: string;
+  browserId?: string;
+  sessionCookie?: string;
 }
 
 export interface Config {

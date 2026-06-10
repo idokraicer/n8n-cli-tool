@@ -53,6 +53,19 @@ export function upsertInstance(
   saveConfig(config);
 }
 
+export function patchInstance(
+  host: string,
+  patch: Partial<InstanceConfig>,
+): void {
+  const config = loadConfig();
+  const existing = config.instances[host];
+  if (!existing) {
+    throw new CliError("no-credentials", `No saved instance for ${host}.`);
+  }
+  config.instances[host] = { ...existing, ...patch };
+  saveConfig(config);
+}
+
 export function resolveInstance(input: {
   host?: string;
   baseUrl?: string;

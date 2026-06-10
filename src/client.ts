@@ -109,6 +109,54 @@ export class N8nClient {
     });
   }
 
+  async retryExecution(
+    id: string,
+    opts: { loadWorkflow?: boolean; cookie?: string } = {},
+  ): Promise<{ status: number; body: unknown }> {
+    const url = `${this.baseUrl}/rest/executions/${encodeURIComponent(id)}/retry`;
+    const headers: Record<string, string> = {
+      "X-N8N-API-KEY": this.apiKey,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    };
+    if (opts.cookie) headers.Cookie = opts.cookie;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    let response: Response;
+    try {
+      response = await this.fetchImpl(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ loadWorkflow: opts.loadWorkflow ?? false }),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      clearTimeout(timer);
+      throw new CliError(
+        "network-error",
+        `Retry request for execution ${id} failed: ${(err as Error).message}`,
+      );
+    }
+    clearTimeout(timer);
+    let body: unknown = null;
+    const text = await response.text();
+    if (text) {
+      try {
+        body = JSON.parse(text);
+      } catch {
+        body = text;
+      }
+    }
+    if (!response.ok) {
+      throw new CliError(
+        statusToCode(response.status),
+        `n8n retry failed for execution ${id}: HTTP ${response.status}`,
+        body,
+      );
+    }
+    return { status: response.status, body };
+  }
+
   listWorkflows(params: {
     limit?: number;
     cursor?: string;

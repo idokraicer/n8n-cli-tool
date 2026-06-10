@@ -7,6 +7,7 @@ import { runWorkflows } from "./commands/workflows";
 import { runExecutions } from "./commands/executions";
 import { runSearch } from "./commands/search";
 import { runGet } from "./commands/get";
+import { runRetry } from "./commands/retry";
 
 async function execute(
   opts: { json?: boolean; text?: boolean },
@@ -38,6 +39,11 @@ program
   .description("Save an n8n instance's API key to the global config")
   .requiredOption("--url <base-url>", "n8n instance base URL")
   .option("--key <api-key>", "API key (prompts if omitted)")
+  .option(
+    "--email <email>",
+    "n8n login email; enables session auth for /rest endpoints (e.g. retry)",
+  )
+  .option("--password <password>", "n8n login password (prompts if omitted)")
   .option("--default", "make this the default instance")
   .action(async (_options, command) => {
     const opts = command.optsWithGlobals();
@@ -101,6 +107,30 @@ program
   .action(async (value, target, _options, command) => {
     const opts = command.optsWithGlobals();
     await execute(opts, () => runSearch(value, target, opts));
+  });
+
+program
+  .command("retry")
+  .description(
+    "Re-run failed executions of a workflow (uses /rest/executions/:id/retry; logs in with saved email/password, or pass --cookie)",
+  )
+  .argument("<workflow>", "workflow URL or id")
+  .option("--status <status>", "filter: success | error | waiting | crashed")
+  .option("--started-after <iso>", "only retry executions started at/after this ISO timestamp")
+  .option("--started-before <iso>", "only retry executions started at/before this ISO timestamp")
+  .option("--ids <list>", "comma/space-separated execution ids to retry (overrides filters)")
+  .option("--exclude <list>", "comma/space-separated execution ids to skip")
+  .option("--limit <n>", "page size when listing executions", "200")
+  .option("--load-workflow", "retry using the original execution's workflow snapshot")
+  .option("--concurrency <n>", "parallel retry requests", "5")
+  .option("--dry-run", "list matching executions without retrying")
+  .option(
+    "--cookie <cookie>",
+    "n8n session cookie override (or set N8N_SESSION_COOKIE); defaults to the saved session",
+  )
+  .action(async (workflow, _options, command) => {
+    const opts = command.optsWithGlobals();
+    await execute(opts, () => runRetry(workflow, opts));
   });
 
 program
