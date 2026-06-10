@@ -5,18 +5,45 @@ workflow execution data, over the n8n public API.
 
 ## Install
 
-Requires [Bun](https://bun.sh).
+Requires [Bun](https://bun.sh) — the CLI runs TypeScript directly, so there is
+no build step.
 
 ```bash
+# 1. Install Bun if you don't have it
+curl -fsSL https://bun.sh/install | bash
+
+# 2. Clone and install dependencies
+git clone https://github.com/idokraicer/n8n-cli-tool.git
+cd n8n-cli-tool
 bun install
-bun link            # exposes the `n8n-helper` binary
+
+# 3. Expose the global `n8n-helper` binary
+bun link
+bun link n8n-helper
 ```
 
+Verify it works:
+
+```bash
+n8n-helper --version
+```
+
+If the command is not found, make sure `~/.bun/bin` is on your `PATH`
+(the Bun installer adds it to your shell profile; open a new terminal or
+`source` it).
+
+To update later, `git pull` in the clone — the linked binary always runs the
+current source. To remove it, run `bun unlink` in the clone.
+
 ## Authenticate
+
+Create an API key in your n8n instance under **Settings → n8n API**, then:
 
 ```bash
 n8n-helper login --url https://n8n.example.com --key <your-n8n-api-key>
 ```
+
+(omit `--key` to be prompted instead of leaving the key in shell history)
 
 Credentials are stored in `~/.n8n-helper/config.json`. Alternatively set
 `N8N_API_KEY` and `N8N_BASE_URL` environment variables (a project `.env` works
