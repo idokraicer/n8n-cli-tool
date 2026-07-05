@@ -40,9 +40,24 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+const UNSAFE_SEGMENTS = new Set(["__proto__", "prototype", "constructor"]);
+
+function pathSegments(path: string): string[] {
+  const parts = path.split(".");
+  for (const part of parts) {
+    if (UNSAFE_SEGMENTS.has(part)) {
+      throw new CliError(
+        "bad-arguments",
+        `Unsafe path segment '${part}' in '${path}'.`,
+      );
+    }
+  }
+  return parts;
+}
+
 function getByPath(obj: Record<string, unknown>, path: string): unknown {
   let current: unknown = obj;
-  for (const part of path.split(".")) {
+  for (const part of pathSegments(path)) {
     if (!isRecord(current)) return undefined;
     current = current[part];
   }
@@ -54,7 +69,7 @@ export function setByPath(
   path: string,
   value: unknown,
 ): void {
-  const parts = path.split(".");
+  const parts = pathSegments(path);
   let current = obj;
 
   for (const part of parts.slice(0, -1)) {

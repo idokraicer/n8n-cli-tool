@@ -276,3 +276,16 @@ test("setPrompt warns when the target node is not an Agent node", () => {
   const results = setPrompt(def, "Code", { system: "sys" });
   expect(results[0].warning).toContain("not @n8n/n8n-nodes-langchain.agent");
 });
+
+test("setByPath rejects prototype-pollution path segments", () => {
+  expect(() => setByPath({}, "__proto__.polluted", "x")).toThrow(
+    expect.objectContaining({ code: "bad-arguments" }),
+  );
+  expect(({} as any).polluted).toBeUndefined();
+});
+
+test("setPrompt rejects an unsafe --user-path/--system-path", () => {
+  expect(() =>
+    setPrompt(workflow(), "Agent", { system: "x", systemPath: "parameters.constructor.y" }),
+  ).toThrow(expect.objectContaining({ code: "bad-arguments" }));
+});
