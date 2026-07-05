@@ -72,12 +72,20 @@ export function buildInternalRunPayload(
   triggerNode: string,
   data: unknown,
 ): unknown {
-  // UNVERIFIED: confirm against live /rest/workflows/:id/run
+  // Verified against a live n8n instance (2026-07-05) by capturing the editor's
+  // real POST /rest/workflows/:id/run request: n8n runs the SAVED workflow by
+  // id and starts from the trigger. Sample input rides in triggerToStartFrom.data
+  // as an ITaskData (the trigger's main output items).
+  const triggerToStartFrom: { name: string; data?: unknown } = {
+    name: triggerNode,
+  };
+  if (data !== undefined) {
+    triggerToStartFrom.data = { data: { main: [[{ json: data }]] } };
+  }
   return {
-    workflowData: def,
-    runData: {},
-    startNodes: [triggerNode],
-    pinData: { [triggerNode]: [{ json: data }] },
+    workflowId: def.id,
+    startNodes: [],
+    triggerToStartFrom,
   };
 }
 

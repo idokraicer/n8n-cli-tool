@@ -85,16 +85,24 @@ test("buildWebhookRequest builds the production webhook URL and keeps the body",
   });
 });
 
-test("buildInternalRunPayload builds the best-effort manual run payload", () => {
+test("buildInternalRunPayload matches n8n's verified /rest run shape (id + triggerToStartFrom)", () => {
   const data = { customer: "Ada" };
 
   expect(buildInternalRunPayload(webhookWorkflow, "Manual child", data)).toEqual({
-    workflowData: webhookWorkflow,
-    runData: {},
-    startNodes: ["Manual child"],
-    pinData: {
-      "Manual child": [{ json: data }],
+    workflowId: "wf1",
+    startNodes: [],
+    triggerToStartFrom: {
+      name: "Manual child",
+      data: { data: { main: [[{ json: data }]] } },
     },
+  });
+});
+
+test("buildInternalRunPayload omits trigger data when none is provided", () => {
+  expect(buildInternalRunPayload(webhookWorkflow, "Manual child", undefined)).toEqual({
+    workflowId: "wf1",
+    startNodes: [],
+    triggerToStartFrom: { name: "Manual child" },
   });
 });
 

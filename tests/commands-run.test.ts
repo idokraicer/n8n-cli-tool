@@ -152,11 +152,11 @@ test("runRun posts internal payload with a saved session and emits internal mode
       id: "WF",
       cookie: "n8n-auth=saved",
       payload: {
-        workflowData: internalWorkflow,
-        runData: {},
-        startNodes: ["Execute Workflow Trigger"],
-        pinData: {
-          "Execute Workflow Trigger": [{ json: { x: 1 } }],
+        workflowId: "WF",
+        startNodes: [],
+        triggerToStartFrom: {
+          name: "Execute Workflow Trigger",
+          data: { data: { main: [[{ json: { x: 1 } }]] } },
         },
       },
     },

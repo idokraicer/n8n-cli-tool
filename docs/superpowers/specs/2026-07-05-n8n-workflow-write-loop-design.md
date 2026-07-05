@@ -376,8 +376,14 @@ green-testable and lands behind the diff+`--yes` safety.
 
 ## Open Assumptions / Verification Gates
 
-- **Internal run payload shape** — highest uncertainty; verify live before
-  finalizing phase 6 (see the ⚠ gate). Webhook path is the fallback.
+- **Internal run payload shape** — VERIFIED (2026-07-05) by capturing the n8n
+  editor's real `POST /rest/workflows/:id/run` request against the live
+  instance. Confirmed shape: `{ workflowId, startNodes: [], triggerToStartFrom:
+  { name, data? } }` where `data` is an `ITaskData` (`{ data: { main:
+  [[{ json }]] } }`). n8n runs the SAVED workflow by id (no `workflowData` in the
+  body); auth is the session cookie (same as `retry`). The earlier best-effort
+  `{ workflowData, runData, startNodes, pinData }` guess was wrong and has been
+  replaced. Not yet exercised end-to-end via the CLI against a live sub-workflow.
 - **`PUT` accepted field set** — `name, nodes, connections, settings,
   staticData`; confirm against the live instance and adjust the strip list
   during phase 5 (carried from the 2026-05-17 spec).
