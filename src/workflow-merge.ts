@@ -89,6 +89,17 @@ export function mergeNodes(
   const merged = cloneWorkflow(live);
   const liveNodes = nodesByName(live.nodes ?? []);
   const localNodes = nodesByName(local.nodes ?? []);
+  if (nodeNames) {
+    for (const name of nodeNames) {
+      if (!localNodes.has(name)) {
+        throw new CliError(
+          "bad-arguments",
+          `Unknown node '${name}'. Available: ${[...localNodes.keys()].sort().join(", ")}`,
+        );
+      }
+    }
+  }
+
   const targets = nodeNames ?? computeChangedNodes(local, live);
   const updated: string[] = [];
   const addedNodes: string[] = [];

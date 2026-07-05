@@ -111,7 +111,9 @@ export async function runPull(
     const diff = existingFile
       ? diffWorkflows(readWorkflowFile(existingFile), fetched)
       : undefined;
-    const shouldGate = Boolean(diff && !opts.yes && !process.stdout.isTTY);
+    // Never overwrite a differing local file without an explicit --yes,
+    // regardless of TTY (no interactive prompt; --yes is the contract).
+    const shouldGate = Boolean(diff && !opts.yes);
     const wrote = !shouldGate;
 
     if (wrote) {

@@ -103,14 +103,18 @@ export async function runValidate(
       host: instance.host,
       client,
     });
+    // Fetch remote first (unless --local) so we can locate the local file by
+    // the workflow's real name even for a bare-id or URL ref.
+    const remote = opts.local ? null : await client.getWorkflow(resolved.id);
     const dir = resolveWorkflowsDir(opts);
     const file =
-      findLocalFile(dir, resolved.name) ?? findLocalFile(dir, resolved.id);
+      findLocalFile(dir, remote?.name ?? resolved.name) ??
+      findLocalFile(dir, resolved.id);
 
     if (!file) {
       throw new CliError(
         "no-local-file",
-        `No local workflow file for ${resolved.name}. Run \`n8n-helper pull\` first.`,
+        `No local workflow file for ${remote?.name ?? resolved.name}. Run \`n8n-helper pull\` first.`,
       );
     }
 
@@ -120,10 +124,9 @@ export async function runValidate(
       local = parseWorkflow(readWorkflowFile(file));
     } catch (err) {
       validation = parseFailureResult(err);
-      local = { name: resolved.name, nodes: [], connections: {} };
+      local = { name: remote?.name ?? resolved.name, nodes: [], connections: {} };
     }
 
-    const remote = opts.local ? null : await client.getWorkflow(resolved.id);
     validation ??= validateWorkflow(local, remote);
 
     const payload = {

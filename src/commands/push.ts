@@ -73,18 +73,23 @@ export async function runPush(
       client,
     });
 
+    // Fetch live first so we can locate the local file by the workflow's real
+    // name even when the ref was a bare id or URL (resolved.name is then the
+    // ref string, not the name).
+    const live = await client.getWorkflow(resolved.id);
     const dir = resolveWorkflowsDir(opts);
     const file =
-      findLocalFile(dir, resolved.name) ?? findLocalFile(dir, resolved.id);
+      findLocalFile(dir, live.name) ??
+      findLocalFile(dir, resolved.name) ??
+      findLocalFile(dir, resolved.id);
     if (!file) {
       throw new CliError(
         "no-local-file",
-        `No local workflow file for ${resolved.name}. Run \`n8n-helper pull\` first.`,
+        `No local workflow file for ${live.name}. Run \`n8n-helper pull\` first.`,
       );
     }
 
     const local = parseWorkflow(readWorkflowFile(file));
-    const live = await client.getWorkflow(resolved.id);
 
     const pushMode: "merge" | "whole" = opts.whole ? "whole" : "merge";
     let pushDef: WorkflowDefinition;

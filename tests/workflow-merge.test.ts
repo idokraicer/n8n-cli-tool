@@ -150,3 +150,9 @@ test("stripForPut keeps only writable fields, defaults settings, and reports str
     ],
   });
 });
+
+test("mergeNodes throws when an explicitly named node is absent locally", () => {
+  const live = workflow([node("a", "A"), node("b", "B")]);
+  const local = workflow([node("a", "A"), node("b", "B")]);
+  expect(() => mergeNodes(live, local, ["Ghost"])).toThrow(/Unknown node 'Ghost'/);
+});

@@ -113,15 +113,15 @@ test("runValidate returns exit 1 when hard errors are present", async () => {
   );
 });
 
-test("runValidate returns exit 2 on an operational failure", async () => {
+test("runValidate --local reports no-local-file without any network fetch", async () => {
   const client = {
     getWorkflow: async () => {
-      throw new Error("should not fetch without a local file");
+      throw new Error("should not fetch under --local");
     },
   };
 
   const { result: code, stdout } = await captureStdout(() =>
-    runValidate("https://h.co/workflow/WF", { dir: workflowsDir, json: true, quiet: true }, () => client as any),
+    runValidate("https://h.co/workflow/WF", { local: true, dir: workflowsDir, json: true, quiet: true }, () => client as any),
   );
 
   expect(code).toBe(2);
@@ -130,6 +130,26 @@ test("runValidate returns exit 2 on an operational failure", async () => {
       code: "no-local-file",
     },
   });
+});
+
+test("runValidate resolves the local file by the live name for a URL ref (missing file still errors)", async () => {
+  // Non-local: validate fetches remote to learn the real name, then looks up
+  // the local file by that name. With no matching file it reports no-local-file.
+  const client = {
+    getWorkflow: async () => ({
+      id: "WF",
+      name: "Some Live Name",
+      nodes: [],
+      connections: {},
+    }),
+  };
+
+  const { result: code, stdout } = await captureStdout(() =>
+    runValidate("https://h.co/workflow/WF", { dir: workflowsDir, json: true, quiet: true }, () => client as any),
+  );
+
+  expect(code).toBe(2);
+  expect(JSON.parse(stdout)).toMatchObject({ error: { code: "no-local-file" } });
 });
 
 test("--local skips remote fetch and omits remote-derived output", async () => {

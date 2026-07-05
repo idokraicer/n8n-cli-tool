@@ -72,7 +72,7 @@ export async function runRun(
   try {
     const parsed = parseN8nUrl(ref);
     const instance = resolveInstance({
-      host: parsed?.host ?? opts.instance,
+      host: opts.instance ?? parsed?.host,
       baseUrl: parsed?.baseUrl,
     });
     const client = clientFactory(instance);

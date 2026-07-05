@@ -241,6 +241,28 @@ test("runPull overwrites different local content when yes is true", async () => 
   });
 });
 
+test("runPull does NOT overwrite a differing file in a TTY without yes", async () => {
+  setStdoutTty(true);
+  const fetched = workflow();
+  const file = join(workflowsDir, "apply-agreement.json");
+  writeFileSync(
+    file,
+    `${JSON.stringify(workflow({ active: false, nodes: [] }), null, 2)}\n`,
+  );
+  const before = readFileSync(file, "utf8");
+  const getOutput = captureStdout();
+
+  const code = await runPull(
+    fetched.name,
+    { dir: workflowsDir, json: true, quiet: true },
+    () => clientFor(fetched) as any,
+  );
+
+  expect(code).toBe(0);
+  expect(JSON.parse(getOutput())).toMatchObject({ wrote: false, diff: { different: true } });
+  expect(readFileSync(file, "utf8")).toBe(before);
+});
+
 test("runPull returns 2 when instance resolution fails", async () => {
   delete process.env.N8N_BASE_URL;
   delete process.env.N8N_API_KEY;
