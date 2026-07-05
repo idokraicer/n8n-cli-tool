@@ -208,3 +208,28 @@ test("parse failure returns invalid validation result without throwing", () => {
   });
   expect(result.summary).toEqual({ errorCount: 1, warningCount: 0 });
 });
+
+test("an AI sub-node referencing the agent's upstream node is NOT flagged not-upstream", () => {
+  // Trigger --main--> Agent ; Memory --ai_memory--> Agent.
+  // Memory references Trigger (upstream of the agent it feeds) — valid at runtime.
+  const local = workflow(
+    [
+      node("t", "Trigger"),
+      node("ag", "Agent", {}, { type: "@n8n/n8n-nodes-langchain.agent" }),
+      node(
+        "mem",
+        "Memory",
+        { sessionKey: "={{ $('Trigger').item.json.sessionId }}" },
+        { type: "@n8n/n8n-nodes-langchain.memoryBufferWindow" },
+      ),
+    ],
+    {
+      Trigger: { main: [[{ node: "Agent", type: "main", index: 0 }]] },
+      Memory: { ai_memory: [[{ node: "Agent", type: "ai_memory", index: 0 }]] },
+    },
+  );
+
+  const result = validateWorkflow(local, null);
+  expect(result.valid).toBe(true);
+  expect(result.errors).toEqual([]);
+});

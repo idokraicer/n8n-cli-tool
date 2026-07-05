@@ -235,8 +235,13 @@ summarize its status/last-node output (reuses `getExecution` + the existing
 execution-data helpers); otherwise just report the execution id/url.
 
 JSON output: `{ instance, workflow:{id,name,url}, mode:"internal|webhook",
-execution:{id,url,status?}, result? }`. Exit `0` on a started/successful run;
-`2` operational.
+execution:{id,url,status?}, pollError?, result? }`. Exit `0` on a started run;
+`1` when `--poll` reports a terminal-failure status (`error`/`crashed`/
+`canceled`) — a failed test run; `2` operational. A webhook body is never parsed
+as an execution envelope (webhook success = HTTP 2xx). A `not-found` poll (the
+execution isn't persisted yet, or manual-execution saving is off) is not an
+error; any other poll failure surfaces as a `pollError` field without failing
+the started run.
 
 > **⚠ Verification gate.** The exact `/rest/workflows/{id}/run` request shape
 > (how pinned trigger data / `runData` / `startNodes` are passed for a manual

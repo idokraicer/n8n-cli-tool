@@ -188,3 +188,16 @@ test("buildGraph handles cycles without infinite traversal", () => {
 
   expect(graph.ancestors("A")).toEqual(new Set(["C", "B", "A"]));
 });
+
+test("extractReferences unescapes escaped delimiters in node names and dedupes", () => {
+  const node = {
+    id: "n", name: "B", type: "x",
+    parameters: {
+      a: "={{ $('O\\'Brien').item.json.x }}",
+      b: "={{ $('O\\'Brien').item.json.y }}",
+    },
+  };
+  const named = extractReferences(node as any).filter((r) => r.referencedNode);
+  expect(named).toHaveLength(1);
+  expect(named[0].referencedNode).toBe("O'Brien");
+});

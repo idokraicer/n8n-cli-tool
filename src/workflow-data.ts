@@ -36,7 +36,14 @@ export function findNode(
 export function extractReferences(node: WorkflowNode): NodeReference[] {
   const refs: NodeReference[] = [];
 
-  function pushNamed(referencedNode: string): void {
+  const seen = new Set<string>();
+  function pushNamed(raw: string): void {
+    // Unescape backslash-escaped delimiters so a name like O\'Brien matches the
+    // real node name; dedupe so repeated references don't produce duplicate errors.
+    const referencedNode = raw.replace(/\\(.)/g, "$1");
+    const key = `named:${referencedNode}`;
+    if (seen.has(key)) return;
+    seen.add(key);
     refs.push({
       node: node.name,
       expression: `$('${referencedNode}')`,
@@ -45,9 +52,10 @@ export function extractReferences(node: WorkflowNode): NodeReference[] {
   }
 
   function inspectExpression(value: string): void {
-    const modern = /\$\((['"])(.*?)\1\)/g;
-    const legacyNode = /\$node\[(['"])(.*?)\1\]/g;
-    const legacyItems = /\$items\((['"])(.*?)\1\)/g;
+    // Name captures allow escaped delimiters (\' or \") inside the node name.
+    const modern = /\$\((['"])((?:\\.|(?!\1)[\s\S])*)\1\)/g;
+    const legacyNode = /\$node\[(['"])((?:\\.|(?!\1)[\s\S])*)\1\]/g;
+    const legacyItems = /\$items\((['"])((?:\\.|(?!\1)[\s\S])*)\1\)/g;
     const json = /\$json\b/g;
 
     for (const match of value.matchAll(modern)) {
@@ -100,6 +108,10 @@ export function buildGraph(def: WorkflowDefinition): {
 } {
   const allPredecessors = new Map<string, Set<string>>();
   const mainPredecessorMap = new Map<string, Set<string>>();
+  // For a sub-node connected to a parent via a non-main (ai_*) input, record
+  // the parent(s) it feeds. At runtime a sub-node executes inside its parent's
+  // context, so it can reference the parent and everything upstream of it.
+  const nonMainParents = new Map<string, Set<string>>();
 
   for (const [sourceName, sourceConnections] of Object.entries(def.connections)) {
     if (!isRecord(sourceConnections)) continue;
@@ -118,6 +130,8 @@ export function buildGraph(def: WorkflowDefinition): {
           addEdge(allPredecessors, connection.node, sourceName);
           if (connectionType === "main") {
             addEdge(mainPredecessorMap, connection.node, sourceName);
+          } else {
+            addEdge(nonMainParents, sourceName, connection.node);
           }
         }
       }
@@ -128,6 +142,11 @@ export function buildGraph(def: WorkflowDefinition): {
     ancestors(nodeName: string): Set<string> {
       const ancestors = new Set<string>();
       const queue = [...(allPredecessors.get(nodeName) ?? [])];
+      // Seed with the parents this node feeds via a non-main (ai_*) connection,
+      // so a sub-node's references to the parent's upstream nodes resolve.
+      for (const parent of nonMainParents.get(nodeName) ?? []) {
+        queue.push(parent);
+      }
 
       for (let index = 0; index < queue.length; index += 1) {
         const current = queue[index];

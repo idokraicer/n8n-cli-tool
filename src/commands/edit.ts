@@ -7,7 +7,7 @@ import {
   writeWorkflowFile,
 } from "../workflow-store";
 import { setCode, setPrompt, replaceNode } from "../workflow-edit";
-import { CliError } from "../types";
+import { CliError, type EditResult } from "../types";
 
 export type EditSubcommand = "set-code" | "set-prompt" | "replace-node";
 
@@ -88,6 +88,17 @@ export async function runEdit(
       );
     }
 
+    if (
+      sub !== "set-code" &&
+      sub !== "set-prompt" &&
+      sub !== "replace-node"
+    ) {
+      throw new CliError(
+        "bad-arguments",
+        `Unknown edit operation '${sub}'. Use set-code, set-prompt, or replace-node.`,
+      );
+    }
+
     const def = readWorkflowFile(file);
     const nodeName = requireNodeName(opts);
     let result: unknown;
@@ -127,7 +138,19 @@ export async function runEdit(
     }
 
     writeWorkflowFile(file, def);
-    emitJson(result);
+    if (resolveOutputMode(opts) === "json") {
+      emitJson(result);
+    } else {
+      const edits = Array.isArray(result)
+        ? (result as EditResult[])
+        : [result as EditResult];
+      for (const edit of edits) {
+        process.stdout.write(
+          `${edit.action} ${edit.node} ${edit.field} (${edit.beforeChars}->${edit.afterChars} chars)\n`,
+        );
+        if (edit.warning) process.stderr.write(`warning: ${edit.warning}\n`);
+      }
+    }
     return 0;
   } catch (err) {
     const cliErr = toCliError(err);
