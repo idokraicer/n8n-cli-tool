@@ -68,7 +68,8 @@ test("runRun posts sample data to a webhook trigger and emits webhook mode", asy
     getWorkflow: async () => webhookWorkflow,
     postWebhook: async (url: string, body: unknown) => {
       calls.push({ url, body });
-      return { status: 200, body: { data: { executionId: "900" }, status: "running" } };
+      // Arbitrary business JSON — must NOT be parsed as an n8n execution.
+      return { status: 200, body: { status: "error", message: "business ok" } };
     },
   };
 
@@ -78,24 +79,19 @@ test("runRun posts sample data to a webhook trigger and emits webhook mode", asy
     () => client as any,
   );
 
-  expect(code).toBe(0);
+  expect(code).toBe(0); // webhook success = HTTP 2xx, regardless of body
   expect(calls).toEqual([
     { url: "https://h.co/webhook/orders/new", body: { orderId: 123 } },
   ]);
-  expect(emitted()).toMatchObject({
+  const out = emitted();
+  expect(out).toMatchObject({
     instance: "h.co",
-    workflow: {
-      id: "WF",
-      name: "Webhook WF",
-      url: "https://h.co/workflow/WF",
-    },
+    workflow: { id: "WF", name: "Webhook WF", url: "https://h.co/workflow/WF" },
     mode: "webhook",
-    execution: {
-      id: "900",
-      url: "https://h.co/workflow/WF/executions/900",
-      status: "running",
-    },
+    result: { status: "error", message: "business ok" },
   });
+  // No execution id/status inferred from the webhook body.
+  expect(out.execution).toEqual({});
 });
 
 test("runRun reads sample data from a file", async () => {
@@ -171,22 +167,25 @@ test("runRun posts internal payload with a saved session and emits internal mode
   });
 });
 
-test("runRun polls an execution when --poll is set", async () => {
+test("runRun polls an internal execution when --poll is set", async () => {
   const client = {
     listWorkflows: async () => ({ data: [], nextCursor: null }),
-    getWorkflow: async () => webhookWorkflow,
-    postWebhook: async () => ({ status: 200, body: { executionId: "903" } }),
+    getWorkflow: async () => internalWorkflow,
+    runWorkflow: async () => ({ status: 200, body: { data: { executionId: "903" } } }),
     getExecution: async (id: string) => ({ id, status: "success" }),
   };
+  const sessionFactory: SessionFactory = () => ({ getCookie: async () => "c" });
 
   const code = await runRun(
     "WF",
     { poll: true, json: true, quiet: true },
     () => client as any,
+    sessionFactory,
   );
 
   expect(code).toBe(0);
   expect(emitted()).toMatchObject({
+    mode: "internal",
     execution: { id: "903", status: "success" },
     result: { id: "903", status: "success" },
   });
@@ -251,11 +250,13 @@ test("runRun refreshes the session and retries once on a 401 from the internal r
   expect(emitted()).toMatchObject({ mode: "internal", execution: { id: "77" } });
 });
 
-test("runRun --poll keeps a started-run success when the execution isn't fetchable", async () => {
+const cookieSession: SessionFactory = () => ({ getCookie: async () => "c" });
+
+test("runRun --poll keeps a started-run success when the execution isn't fetchable (not-found)", async () => {
   const client = {
     listWorkflows: async () => ({ data: [], nextCursor: null }),
-    getWorkflow: async () => webhookWorkflow,
-    postWebhook: async () => ({ status: 200, body: { executionId: "950" } }),
+    getWorkflow: async () => internalWorkflow,
+    runWorkflow: async () => ({ status: 200, body: { data: { executionId: "950" } } }),
     getExecution: async () => {
       throw new CliError("not-found", "404");
     },
@@ -264,22 +265,45 @@ test("runRun --poll keeps a started-run success when the execution isn't fetchab
     "WF",
     { poll: true, json: true, quiet: true },
     () => client as any,
+    cookieSession,
   );
   expect(code).toBe(0);
-  expect(emitted()).toMatchObject({ execution: { id: "950" } });
+  const out = emitted();
+  expect(out).toMatchObject({ execution: { id: "950" } });
+  expect(out.pollError).toBeUndefined(); // not-found is expected, not surfaced
+});
+
+test("runRun --poll surfaces a non-not-found poll error but keeps the started run (exit 0)", async () => {
+  const client = {
+    listWorkflows: async () => ({ data: [], nextCursor: null }),
+    getWorkflow: async () => internalWorkflow,
+    runWorkflow: async () => ({ status: 200, body: { data: { executionId: "952" } } }),
+    getExecution: async () => {
+      throw new CliError("n8n-error", "HTTP 500");
+    },
+  };
+  const code = await runRun(
+    "WF",
+    { poll: true, json: true, quiet: true },
+    () => client as any,
+    cookieSession,
+  );
+  expect(code).toBe(0);
+  expect(emitted().pollError).toMatchObject({ code: "n8n-error" });
 });
 
 test("runRun returns exit 1 when the polled execution status is error", async () => {
   const client = {
     listWorkflows: async () => ({ data: [], nextCursor: null }),
-    getWorkflow: async () => webhookWorkflow,
-    postWebhook: async () => ({ status: 200, body: { executionId: "951" } }),
+    getWorkflow: async () => internalWorkflow,
+    runWorkflow: async () => ({ status: 200, body: { data: { executionId: "951" } } }),
     getExecution: async (id: string) => ({ id, status: "error" }),
   };
   const code = await runRun(
     "WF",
     { poll: true, json: true, quiet: true },
     () => client as any,
+    cookieSession,
   );
   expect(code).toBe(1);
   expect(emitted()).toMatchObject({ execution: { id: "951", status: "error" } });

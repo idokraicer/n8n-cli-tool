@@ -139,16 +139,29 @@ export async function runRun(
       }
     }
 
-    let summary = summarizeRun(response.body);
-    let result = response.body;
+    // Only the internal /rest run returns an n8n execution envelope. A webhook
+    // response is arbitrary business JSON, so we must NOT read run status/id
+    // out of it (that would let a body like {status:"error"} fake a failure or
+    // fabricate an execution id).
+    let summary: { executionId?: string; status?: string } =
+      plan.kind === "internal" ? summarizeRun(response.body) : {};
+    let result: unknown = response.body;
+    let pollError: { code: string; message: string } | undefined;
     if (opts.poll && summary.executionId) {
       try {
         result = await client.getExecution(summary.executionId);
         summary = { ...summary, ...summarizeRun(result) };
-      } catch {
-        // The execution may not be queryable yet, or the instance has manual-
-        // execution saving off. The run itself started fine, so keep the
-        // started-run envelope instead of failing the whole command.
+      } catch (err) {
+        // "not-found" is expected: the execution may not be persisted yet, or
+        // the instance has manual-execution saving off. Any other error is a
+        // real poll failure worth surfacing (without failing the started run).
+        const cliErr = err instanceof CliError ? err : null;
+        if (!cliErr || cliErr.code !== "not-found") {
+          pollError = {
+            code: cliErr?.code ?? "n8n-error",
+            message: (err as Error).message,
+          };
+        }
       }
     }
 
@@ -174,11 +187,13 @@ export async function runRun(
             }),
         ...(summary.status === undefined ? {} : { status: summary.status }),
       },
+      ...(pollError ? { pollError } : {}),
       result,
     });
     // A polled terminal failure is a failed test run: exit 1 so agents driving
     // off the exit code don't read a broken flow as success.
-    return summary.status === "error" || summary.status === "crashed" ? 1 : 0;
+    const failedStatuses = new Set(["error", "crashed", "canceled"]);
+    return summary.status && failedStatuses.has(summary.status) ? 1 : 0;
   } catch (err) {
     const cliErr =
       err instanceof CliError
