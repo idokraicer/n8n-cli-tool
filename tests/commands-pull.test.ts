@@ -280,3 +280,17 @@ test("runPull returns 2 when instance resolution fails", async () => {
     error: { code: "no-credentials" },
   });
 });
+
+test("runPull no-op includes a hint to re-run with --yes", async () => {
+  setStdoutTty(false);
+  const fetched = workflow();
+  const file = join(workflowsDir, "apply-agreement.json");
+  writeFileSync(file, `${JSON.stringify(workflow({ active: false, nodes: [] }), null, 2)}\n`);
+  const getOutput = captureStdout();
+  await runPull(
+    fetched.name,
+    { dir: workflowsDir, json: true, quiet: true },
+    () => clientFor(fetched) as any,
+  );
+  expect(JSON.parse(getOutput()).hint).toContain("--yes");
+});

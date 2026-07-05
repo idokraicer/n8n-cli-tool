@@ -293,3 +293,25 @@ test("runPush reports excluded added removed and connection changes", async () =
     },
   });
 });
+
+test("runPush preview (no --yes) includes an agentic hint to apply with --yes", async () => {
+  const live = workflow([node("a", "A", { value: "live" })]);
+  writeLocal(workflow([node("a", "A", { value: "local" })]));
+  const { client } = clientFor(live);
+  const { stdout } = await captureStdout(() =>
+    runPush(url(), { dir: workflowsDir, json: true, quiet: true }, () => client as any),
+  );
+  expect(JSON.parse(stdout).hint).toContain("--yes");
+});
+
+test("runPush validation-refused includes a hint mentioning --force", async () => {
+  const live = workflow([node("a", "A")]);
+  writeLocal(workflow([node("a", "A", { value: "={{ $('Missing').item.json.id }}" })]));
+  const { client } = clientFor(live);
+  const { stdout } = await captureStdout(() =>
+    runPush(url(), { dir: workflowsDir, yes: true, json: true, quiet: true }, () => client as any),
+  );
+  const out = JSON.parse(stdout);
+  expect(out.pushed).toBe(false);
+  expect(out.hint).toContain("--force");
+});

@@ -137,13 +137,21 @@ export async function runPush(
 
     // Validation hard errors block the push unless --force.
     if (!validation.valid && !opts.force) {
-      emitJson({ ...basePayload, pushed: false });
+      emitJson({
+        ...basePayload,
+        pushed: false,
+        hint: `Refused: validation found ${validation.summary.errorCount} hard error(s). Fix them (e.g. n8n-helper edit / pull the latest), then push again — or re-run with --force to push anyway.`,
+      });
       return 1;
     }
 
     // Safe no-op: never write without an explicit --yes.
     if (!opts.yes) {
-      emitJson({ ...basePayload, pushed: false });
+      emitJson({
+        ...basePayload,
+        pushed: false,
+        hint: "Preview only — nothing was pushed. Review the diff, then re-run with --yes to apply it.",
+      });
       return 0;
     }
 

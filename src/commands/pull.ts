@@ -135,6 +135,11 @@ export async function runPull(
         triggerNodes: triggerNodes(fetched),
       },
       ...(diff ? { diff } : {}),
+      ...(wrote
+        ? {}
+        : {
+            hint: `Local file at ${dest} differs from the live workflow and was NOT overwritten. Re-run with --yes to replace it with the live version, or keep your local edits.`,
+          }),
     });
 
     return 0;

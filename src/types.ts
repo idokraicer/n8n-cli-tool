@@ -163,10 +163,12 @@ export interface RunPlan {
 export class CliError extends Error {
   code: string;
   details?: unknown;
-  constructor(code: string, message: string, details?: unknown) {
+  hint?: string;
+  constructor(code: string, message: string, details?: unknown, hint?: string) {
     super(message);
     this.name = "CliError";
     this.code = code;
     this.details = details;
+    this.hint = hint;
   }
 }

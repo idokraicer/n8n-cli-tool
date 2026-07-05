@@ -87,7 +87,9 @@ export function readWorkflowFile(path: string): WorkflowDefinition {
   if (!existsSync(path)) {
     throw new CliError(
       "no-local-file",
-      `No local workflow file at ${path}. Run \`n8n-helper pull\` first.`,
+      `No local workflow file at ${path}.`,
+      undefined,
+      "Run `n8n-helper pull <name>` to fetch the workflow to a local file first.",
     );
   }
 

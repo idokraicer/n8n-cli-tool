@@ -29,12 +29,20 @@ export function emitError(error: CliError, mode: OutputMode): void {
   if (mode === "json") {
     process.stdout.write(
       JSON.stringify(
-        { error: { code: error.code, message: error.message, details: error.details } },
+        {
+          error: {
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            ...(error.hint ? { hint: error.hint } : {}),
+          },
+        },
         null,
         2,
       ) + "\n",
     );
   } else {
     process.stderr.write(`Error (${error.code}): ${error.message}\n`);
+    if (error.hint) process.stderr.write(`  hint: ${error.hint}\n`);
   }
 }

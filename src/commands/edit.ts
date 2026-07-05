@@ -84,7 +84,9 @@ export async function runEdit(
     if (!file) {
       throw new CliError(
         "no-local-file",
-        `No local workflow file for '${ref}' in ${dir}. Run \`n8n-helper pull\` first.`,
+        `No local workflow file for '${ref}' in ${dir}.`,
+        undefined,
+        `Run \`n8n-helper pull "${ref}"\` to fetch it locally first (edit works on the local file, by exact name).`,
       );
     }
 

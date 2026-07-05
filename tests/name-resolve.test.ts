@@ -117,6 +117,7 @@ test("throws bad-arguments when exact catalog matches collide", async () => {
     code: "bad-arguments",
     message:
       "Multiple workflows named 'Duplicate': WF_ONE (https://n8n.example.com/workflow/WF_ONE), WF_TWO (https://n8n.example.com/workflow/WF_TWO)",
+    hint: expect.stringContaining("full workflow URL"),
   });
 });
 

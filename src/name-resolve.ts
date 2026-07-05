@@ -32,6 +32,8 @@ function collisionError(ref: string, matches: WorkflowMatch[]): CliError {
   return new CliError(
     "bad-arguments",
     `Multiple workflows named '${ref}': ${descriptions}`,
+    { candidates: matches },
+    "The name is ambiguous — re-run with one of the listed ids or a full workflow URL instead of the name.",
   );
 }
 

@@ -175,7 +175,25 @@ Output is **JSON when piped/non-TTY** and human-readable in a terminal. Force wi
 
 - `0` — success (`search`: at least one match; `push`/`pull` without `--yes`: a safe diff-only no-op still exits `0`).
 - `1` — a normal negative result: `search` found no matches; `validate` found hard errors (invalid); `push` refused because validation failed (override with `--force`).
-- `2` — operational error; a JSON error envelope `{ "error": { "code", "message", "details" } }` is printed in JSON mode.
+- `2` — operational error; a JSON error envelope `{ "error": { "code", "message", "details", "hint"? } }` is printed in JSON mode.
+
+**Reading results as an agent — don't rely on the exit code alone.** A command
+can exit `0` and still have done nothing on purpose (a diff-only preview). Key
+off the structured fields:
+
+- **`wrote` / `pushed` booleans** — `pull` and `push` return `false` here when
+  they only previewed a diff (no `--yes`). Exit `0` ≠ "applied".
+- **`hint`** — present on every safe no-op and every refusal (and in the error
+  envelope). It is the machine-readable next step, e.g. *"Preview only — re-run
+  with --yes to apply it"* or *"Refused: validation found N errors… or --force"*.
+  When you see a `hint`, that is your instruction for the next call.
+- **`validation.valid` / `validation.errorCount`** on `push`/`validate` — fix
+  the reported `errors[]` before pushing, or pass `--force`.
+- **`nodesExcluded`** on `push` merge — nodes the merge did not send (added/
+  removed/connection changes); use `--whole` if you need them.
+- **error `code`** — a stable slug to branch on (`no-local-file`,
+  `no-credentials`, `bad-arguments`, `unauthorized`, `not-found`, `rate-limited`,
+  `network-error`, …). Each blocking error carries a `hint` with the fix.
 
 Global flags: `--instance <host>` (target a non-default saved instance), `--quiet` (suppress stderr progress), `--out <file>` (on `search`/`get`, write JSON to a file).
 

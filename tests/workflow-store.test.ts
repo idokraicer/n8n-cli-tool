@@ -116,7 +116,8 @@ test("readWorkflowFile throws no-local-file when the file is missing", () => {
   expect(() => readWorkflowFile(path)).toThrow(
     expect.objectContaining({
       code: "no-local-file",
-      message: `No local workflow file at ${path}. Run \`n8n-helper pull\` first.`,
+      message: `No local workflow file at ${path}.`,
+      hint: expect.stringContaining("n8n-helper pull"),
     }),
   );
 });
