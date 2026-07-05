@@ -97,3 +97,52 @@ test("a 403 maps to code forbidden", async () => {
     expect((e as CliError).code).toBe("forbidden");
   }
 });
+
+function stubFetch(handler: (url: string, init?: RequestInit) => Response) {
+  return async (url: string, init?: RequestInit) => handler(url, init);
+}
+
+test("getWorkflow GETs /api/v1/workflows/:id and returns the body", async () => {
+  let seenUrl = "";
+  const client = new N8nClient({
+    baseUrl: "https://n8n.test", apiKey: "k",
+    fetchImpl: stubFetch((url) => { seenUrl = url; return new Response(JSON.stringify({ id: "W1", name: "Foo", nodes: [], connections: {} }), { status: 200 }); }),
+  });
+  const wf = await client.getWorkflow("W1");
+  expect(seenUrl).toBe("https://n8n.test/api/v1/workflows/W1");
+  expect(wf.name).toBe("Foo");
+});
+
+test("updateWorkflow PUTs the body with the api key header", async () => {
+  let method = ""; let body = ""; let key = "";
+  const client = new N8nClient({
+    baseUrl: "https://n8n.test", apiKey: "k",
+    fetchImpl: stubFetch((url, init) => { void url; method = init!.method!; body = init!.body as string; key = (init!.headers as any)["X-N8N-API-KEY"]; return new Response(JSON.stringify({ id: "W1", name: "Foo", nodes: [], connections: {} }), { status: 200 }); }),
+  });
+  await client.updateWorkflow("W1", { name: "Foo", nodes: [], connections: {}, settings: {} });
+  expect(method).toBe("PUT");
+  expect(key).toBe("k");
+  expect(JSON.parse(body).name).toBe("Foo");
+});
+
+test("runWorkflow POSTs to /rest/workflows/:id/run with the session cookie", async () => {
+  let url = ""; let cookie = "";
+  const client = new N8nClient({
+    baseUrl: "https://n8n.test", apiKey: "k",
+    fetchImpl: stubFetch((u, init) => { url = u; cookie = (init!.headers as any).Cookie; return new Response(JSON.stringify({ data: { executionId: "42" } }), { status: 200 }); }),
+  });
+  const res = await client.runWorkflow("W1", { workflowData: {} }, { cookie: "n8n-auth=abc" });
+  expect(url).toBe("https://n8n.test/rest/workflows/W1/run");
+  expect(cookie).toBe("n8n-auth=abc");
+  expect(res.status).toBe(200);
+});
+
+test("postWebhook POSTs the given url and returns parsed body", async () => {
+  const client = new N8nClient({
+    baseUrl: "https://n8n.test", apiKey: "k",
+    fetchImpl: stubFetch(() => new Response(JSON.stringify({ ok: true }), { status: 200 })),
+  });
+  const res = await client.postWebhook("https://n8n.test/webhook/abc", { a: 1 });
+  expect(res.status).toBe(200);
+  expect((res.body as any).ok).toBe(true);
+});

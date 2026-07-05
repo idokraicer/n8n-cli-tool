@@ -107,6 +107,58 @@ export interface Match {
   context?: unknown;
 }
 
+export interface WorkflowNode {
+  id: string;
+  name: string;
+  type: string;
+  typeVersion?: number;
+  position?: [number, number];
+  parameters?: Record<string, unknown>;
+  credentials?: Record<string, unknown>;
+  [k: string]: unknown;
+}
+
+export interface WorkflowDefinition {
+  id?: string;
+  name: string;
+  active?: boolean;
+  nodes: WorkflowNode[];
+  connections: Record<string, unknown>;
+  settings?: Record<string, unknown>;
+  staticData?: unknown;
+  pinData?: Record<string, unknown>;
+  [k: string]: unknown;
+}
+
+export interface EditResult {
+  node: string;
+  field: string;
+  action: "set" | "replaced";
+  beforeChars: number;
+  afterChars: number;
+}
+
+export interface NodeReference {
+  node: string;
+  expression: string;
+  referencedNode?: string;
+}
+
+export interface MergePlan {
+  merged: WorkflowDefinition;
+  updated: string[];
+  excluded: {
+    addedNodes: string[];
+    removedNodes: string[];
+    connectionsChanged: boolean;
+  };
+}
+
+export interface RunPlan {
+  kind: "internal" | "webhook";
+  triggerNode: string;
+}
+
 export class CliError extends Error {
   code: string;
   details?: unknown;
