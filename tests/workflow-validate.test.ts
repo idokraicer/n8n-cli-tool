@@ -233,3 +233,29 @@ test("an AI sub-node referencing the agent's upstream node is NOT flagged not-up
   expect(result.valid).toBe(true);
   expect(result.errors).toEqual([]);
 });
+
+test("a nested sub-node-of-a-sub-node referencing the top-level upstream is valid", () => {
+  // Trigger --main--> Agent ; Tool --ai_tool--> Agent ; Embed --ai_embedding--> Tool.
+  // Embed references Trigger (upstream of the whole agent chain) — valid at runtime.
+  const local = workflow(
+    [
+      node("t", "Trigger"),
+      node("ag", "Agent", {}, { type: "@n8n/n8n-nodes-langchain.agent" }),
+      node("tool", "Tool", {}, { type: "@n8n/n8n-nodes-langchain.toolVectorStore" }),
+      node(
+        "emb",
+        "Embed",
+        { key: "={{ $('Trigger').item.json.id }}" },
+        { type: "@n8n/n8n-nodes-langchain.embeddingsOpenAi" },
+      ),
+    ],
+    {
+      Trigger: { main: [[{ node: "Agent", type: "main", index: 0 }]] },
+      Tool: { ai_tool: [[{ node: "Agent", type: "ai_tool", index: 0 }]] },
+      Embed: { ai_embedding: [[{ node: "Tool", type: "ai_embedding", index: 0 }]] },
+    },
+  );
+  const result = validateWorkflow(local, null);
+  expect(result.valid).toBe(true);
+  expect(result.errors).toEqual([]);
+});

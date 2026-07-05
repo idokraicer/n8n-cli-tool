@@ -160,6 +160,12 @@ export function buildGraph(def: WorkflowDefinition): {
         for (const predecessor of allPredecessors.get(current) ?? []) {
           if (!ancestors.has(predecessor)) queue.push(predecessor);
         }
+        // Follow non-main parent edges transitively: a sub-node runs inside its
+        // parent's context, and that parent may itself be a sub-node of a higher
+        // parent (sub-node-of-a-sub-node).
+        for (const parent of nonMainParents.get(current) ?? []) {
+          if (!ancestors.has(parent)) queue.push(parent);
+        }
       }
 
       return ancestors;
