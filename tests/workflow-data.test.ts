@@ -201,3 +201,13 @@ test("extractReferences unescapes escaped delimiters in node names and dedupes",
   expect(named).toHaveLength(1);
   expect(named[0].referencedNode).toBe("O'Brien");
 });
+
+test("extractReferences is linear on backslash-heavy input (no ReDoS)", () => {
+  // Unterminated $(' followed by many backslashes — the pathological case.
+  const evil = "=" + "$('" + "\\".repeat(50000);
+  const node = { id: "n", name: "B", type: "x", parameters: { a: evil } };
+  const start = performance.now();
+  extractReferences(node as any);
+  const elapsed = performance.now() - start;
+  expect(elapsed).toBeLessThan(500); // linear; the old regex took minutes here
+});

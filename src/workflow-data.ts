@@ -38,9 +38,10 @@ export function extractReferences(node: WorkflowNode): NodeReference[] {
 
   const seen = new Set<string>();
   function pushNamed(raw: string): void {
-    // Unescape backslash-escaped delimiters so a name like O\'Brien matches the
-    // real node name; dedupe so repeated references don't produce duplicate errors.
-    const referencedNode = raw.replace(/\\(.)/g, "$1");
+    // Unescape backslash-escaped delimiters (\' or \") so a name like O\'Brien
+    // matches the real node name; leave other backslashes intact. Dedupe so
+    // repeated references don't produce duplicate errors.
+    const referencedNode = raw.replace(/\\(['"])/g, "$1");
     const key = `named:${referencedNode}`;
     if (seen.has(key)) return;
     seen.add(key);
@@ -53,9 +54,12 @@ export function extractReferences(node: WorkflowNode): NodeReference[] {
 
   function inspectExpression(value: string): void {
     // Name captures allow escaped delimiters (\' or \") inside the node name.
-    const modern = /\$\((['"])((?:\\.|(?!\1)[\s\S])*)\1\)/g;
-    const legacyNode = /\$node\[(['"])((?:\\.|(?!\1)[\s\S])*)\1\]/g;
-    const legacyItems = /\$items\((['"])((?:\\.|(?!\1)[\s\S])*)\1\)/g;
+    // The second alternative excludes backslash so the pattern is unambiguous
+    // (a backslash only matches via `\\.`) — this keeps matching linear and
+    // avoids catastrophic backtracking (ReDoS) on backslash-heavy input.
+    const modern = /\$\((['"])((?:\\.|(?!\1)[^\\])*)\1\)/g;
+    const legacyNode = /\$node\[(['"])((?:\\.|(?!\1)[^\\])*)\1\]/g;
+    const legacyItems = /\$items\((['"])((?:\\.|(?!\1)[^\\])*)\1\)/g;
     const json = /\$json\b/g;
 
     for (const match of value.matchAll(modern)) {
