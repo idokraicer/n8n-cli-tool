@@ -136,3 +136,24 @@ test("writeWorkflowFile creates a pretty JSON file and readWorkflowFile reads it
   );
   expect(readWorkflowFile(path)).toEqual(def);
 });
+
+test("findLocalFile throws on ambiguous stem-only matches instead of guessing", () => {
+  const dir = tempDir();
+  mkdirSync(join(dir, "a"), { recursive: true });
+  mkdirSync(join(dir, "b"), { recursive: true });
+  // Neither file's .name equals "Report"; both filenames slug to "report".
+  writeFileSync(join(dir, "a", "report.json"), JSON.stringify({ name: "Alpha", nodes: [], connections: {} }));
+  writeFileSync(join(dir, "b", "report.json"), JSON.stringify({ name: "Beta", nodes: [], connections: {} }));
+  expect(() => findLocalFile(dir, "Report")).toThrow(
+    expect.objectContaining({ code: "bad-arguments" }),
+  );
+});
+
+test("writeWorkflowFile writes atomically and leaves no .tmp behind", () => {
+  const dir = tempDir();
+  const path = join(dir, "wf.json");
+  const def = { name: "Atomic", nodes: [], connections: {} } as any;
+  writeWorkflowFile(path, def);
+  expect(readWorkflowFile(path)).toEqual(def);
+  expect(existsSync(`${path}.tmp`)).toBe(false);
+});

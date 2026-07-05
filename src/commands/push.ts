@@ -123,7 +123,7 @@ export async function runPush(
       instance: instance.host,
       workflow: {
         id: resolved.id,
-        name: local.name,
+        name: pushDef.name,
         url: workflowUrl(instance.baseUrl, resolved.id),
       },
       file,

@@ -3,6 +3,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  renameSync,
   writeFileSync,
 } from "node:fs";
 import { basename, dirname, extname, join } from "node:path";
@@ -56,6 +57,13 @@ export function findLocalFile(dir: string, name: string): string | null {
   }
 
   if (nameMatches.length === 1) return nameMatches[0];
+  if (stemMatches.length > 1) {
+    throw new CliError(
+      "bad-arguments",
+      `Multiple local files match the name slug '${wantedStem}': ${stemMatches.join(", ")}. Pass an explicit --dir or rename to disambiguate.`,
+      { candidates: stemMatches },
+    );
+  }
   return stemMatches[0] ?? null;
 }
 
@@ -79,5 +87,11 @@ export function writeWorkflowFile(
   def: WorkflowDefinition,
 ): void {
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, `${JSON.stringify(def, null, 2)}\n`);
+  // Write-then-rename so a crash/full-disk mid-write can't truncate the target
+  // to an empty/partial file (rename is atomic on the same filesystem). Matches
+  // the catalog's atomic-write pattern; critical for `edit`, whose content has
+  // no remote copy.
+  const tmp = `${path}.tmp`;
+  writeFileSync(tmp, `${JSON.stringify(def, null, 2)}\n`);
+  renameSync(tmp, path);
 }
