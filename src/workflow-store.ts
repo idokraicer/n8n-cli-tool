@@ -7,6 +7,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { basename, dirname, extname, join } from "node:path";
+import { createHash } from "node:crypto";
 import { CliError, type WorkflowDefinition } from "./types";
 
 export function resolveWorkflowsDir(opts: { dir?: string }): string {
@@ -14,7 +15,16 @@ export function resolveWorkflowsDir(opts: { dir?: string }): string {
 }
 
 export function slugify(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  // Preserve Unicode letters/digits so non-ASCII names (e.g. Hebrew) don't all
+  // collapse to the same empty slug and collide on one file.
+  const slug = name
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "-")
+    .replace(/^-+|-+$/g, "");
+  if (slug) return slug;
+  // A name with no letters/digits at all (emoji/punctuation only): fall back to
+  // a deterministic per-name suffix so distinct names still get distinct files.
+  return `wf-${createHash("sha1").update(name).digest("hex").slice(0, 8)}`;
 }
 
 export function findLocalFile(dir: string, name: string): string | null {
@@ -42,7 +52,9 @@ export function findLocalFile(dir: string, name: string): string | null {
         // Invalid JSON files are not workflow candidates by parsed name.
       }
 
-      if (basename(entry.name, ".json") === wantedStem) stemMatches.push(path);
+      if (wantedStem && basename(entry.name, ".json") === wantedStem) {
+        stemMatches.push(path);
+      }
     }
   }
 

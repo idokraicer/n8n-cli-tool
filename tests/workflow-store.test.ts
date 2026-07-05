@@ -157,3 +157,28 @@ test("writeWorkflowFile writes atomically and leaves no .tmp behind", () => {
   expect(readWorkflowFile(path)).toEqual(def);
   expect(existsSync(`${path}.tmp`)).toBe(false);
 });
+
+test("slugify preserves non-ASCII names so Hebrew workflows don't collide", () => {
+  const a = slugify("שלום מכירות");
+  const b = slugify("אבג");
+  expect(a).not.toBe("");
+  expect(b).not.toBe("");
+  expect(a).not.toBe(b);
+  // ASCII behavior unchanged
+  expect(slugify("Apply Agreement")).toBe("apply-agreement");
+});
+
+test("slugify gives distinct deterministic slugs to punctuation/emoji-only names", () => {
+  const a = slugify("!!!");
+  const b = slugify("???");
+  expect(a).toMatch(/^wf-[0-9a-f]{8}$/);
+  expect(a).not.toBe(b);
+  expect(slugify("!!!")).toBe(a); // deterministic
+});
+
+test("findLocalFile does not match an unrelated file by an empty stem", () => {
+  const dir = tempDir();
+  writeFileSync(join(dir, "wf-abc.json"), JSON.stringify({ name: "אבג", nodes: [], connections: {} }));
+  // Looking up a DIFFERENT Hebrew name must not return the אבג file.
+  expect(findLocalFile(dir, "שלום")).toBeNull();
+});
