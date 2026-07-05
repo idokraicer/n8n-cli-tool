@@ -136,6 +136,7 @@ export interface EditResult {
   action: "set" | "replaced";
   beforeChars: number;
   afterChars: number;
+  warning?: string;
 }
 
 export interface NodeReference {

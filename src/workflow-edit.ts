@@ -83,6 +83,9 @@ function setStringField(
   };
 }
 
+const CODE_NODE_TYPE = "n8n-nodes-base.code";
+const AGENT_NODE_TYPE = "@n8n/n8n-nodes-langchain.agent";
+
 export function setCode(
   def: WorkflowDefinition,
   nodeName: string,
@@ -91,7 +94,11 @@ export function setCode(
 ): EditResult {
   const node = requireNode(def, nodeName);
   const field = lang === "js" ? "parameters.jsCode" : "parameters.pythonCode";
-  return setStringField(node, field, code);
+  const result = setStringField(node, field, code);
+  if (node.type !== CODE_NODE_TYPE) {
+    result.warning = `Node '${nodeName}' is type '${node.type}', not ${CODE_NODE_TYPE}; ${field} may be ignored at runtime.`;
+  }
+  return result;
 }
 
 function promptValue(
@@ -143,6 +150,16 @@ export function setPrompt(
         promptValue(existing, opts.user, opts.literal),
       ),
     );
+    // n8n ignores parameters.text unless promptType is "define"; setting the
+    // default user field without this leaves the prompt silently inert.
+    if (!opts.userPath) {
+      setByPath(node, "parameters.promptType", "define");
+    }
+  }
+
+  if (node.type !== AGENT_NODE_TYPE) {
+    const warning = `Node '${nodeName}' is type '${node.type}', not ${AGENT_NODE_TYPE}; the prompt field(s) may be ignored at runtime.`;
+    for (const result of results) result.warning = warning;
   }
 
   return results;

@@ -54,13 +54,20 @@ const defaultSessionFactory: SessionFactory = (instance) =>
   new SessionManager(instance.host, instance.baseUrl);
 
 function parseSampleData(opts: RunOpts): unknown {
-  if (opts.data) {
-    return JSON.parse(readFileSync(opts.data, "utf8"));
+  try {
+    if (opts.data) {
+      return JSON.parse(readFileSync(opts.data, "utf8"));
+    }
+    if (opts.dataInline) {
+      return JSON.parse(opts.dataInline);
+    }
+    return {};
+  } catch (err) {
+    throw new CliError(
+      "bad-arguments",
+      `Could not read sample data from ${opts.data ? `--data ${opts.data}` : "--data-inline"}: ${(err as Error).message}`,
+    );
   }
-  if (opts.dataInline) {
-    return JSON.parse(opts.dataInline);
-  }
-  return {};
 }
 
 function workflowName(refName: string, def: WorkflowDefinition): string {
@@ -135,8 +142,14 @@ export async function runRun(
     let summary = summarizeRun(response.body);
     let result = response.body;
     if (opts.poll && summary.executionId) {
-      result = await client.getExecution(summary.executionId);
-      summary = { ...summary, ...summarizeRun(result) };
+      try {
+        result = await client.getExecution(summary.executionId);
+        summary = { ...summary, ...summarizeRun(result) };
+      } catch {
+        // The execution may not be queryable yet, or the instance has manual-
+        // execution saving off. The run itself started fine, so keep the
+        // started-run envelope instead of failing the whole command.
+      }
     }
 
     const executionId = summary.executionId;
@@ -163,7 +176,9 @@ export async function runRun(
       },
       result,
     });
-    return 0;
+    // A polled terminal failure is a failed test run: exit 1 so agents driving
+    // off the exit code don't read a broken flow as success.
+    return summary.status === "error" || summary.status === "crashed" ? 1 : 0;
   } catch (err) {
     const cliErr =
       err instanceof CliError

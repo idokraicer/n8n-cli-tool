@@ -140,7 +140,7 @@ export function stripForPut(def: WorkflowDefinition): {
   const body: Partial<WorkflowDefinition> = {
     name: def.name,
     nodes: def.nodes,
-    connections: def.connections,
+    connections: def.connections ?? {},
     settings: def.settings ?? {},
   };
 

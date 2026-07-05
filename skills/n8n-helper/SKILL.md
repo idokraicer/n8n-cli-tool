@@ -154,10 +154,20 @@ Field targets `edit` writes: `set-code` → a Code node's `parameters.jsCode`
 Prompt/code values that were n8n expressions keep their leading `=` unless you
 pass `--literal`.
 
-> **`run` caveat:** for sub-workflows (Execute-Workflow-Trigger) `run` uses n8n's
-> internal `/rest` API (needs the session login, like `retry`), and its exact
-> request shape is unverified against every n8n version — treat a failed
-> internal run as "confirm against this instance," not a bug in your data.
+**Gotchas:**
+- **Prefer `push --node <name>` for precise pushes.** Plain `push` (merge, no
+  `--node`) sends *every* node whose object differs from live — which includes
+  nodes that changed **live** since your `pull`, not just the ones you edited.
+  Read the printed diff before `--yes`; use `--node` (or `--whole`) to be exact.
+- **`edit` takes the exact workflow name** (it operates on the local file by
+  name), not an id or URL. Run `pull` first if you don't have the file.
+- **`run` on a webhook workflow requires it to be active** (it POSTs the
+  production `/webhook/<path>`). For sub-workflows (Execute-Workflow-Trigger),
+  `run` uses n8n's internal `/rest` API with your session login (like `retry`)
+  and sends the `browser-id` the session was created with. `run --poll` exits
+  non-zero if the polled execution ended in `error`/`crashed`.
+- **`set-code`/`set-prompt` warn** (in the JSON `warning` field) when the target
+  node isn't a Code / AI-Agent node — a signal the edit may be inert.
 
 ## Output and exit codes
 

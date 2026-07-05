@@ -32,7 +32,7 @@ function workflow() {
       {
         id: "agent-id",
         name: "Agent",
-        type: "n8n-nodes-base.agent",
+        type: "@n8n/n8n-nodes-langchain.agent",
         position: [300, 400],
         parameters: {
           options: { systemMessage: "old system" },

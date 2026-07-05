@@ -250,3 +250,52 @@ test("runRun refreshes the session and retries once on a 401 from the internal r
   expect(runCalls).toEqual(["stale", "fresh"]);
   expect(emitted()).toMatchObject({ mode: "internal", execution: { id: "77" } });
 });
+
+test("runRun --poll keeps a started-run success when the execution isn't fetchable", async () => {
+  const client = {
+    listWorkflows: async () => ({ data: [], nextCursor: null }),
+    getWorkflow: async () => webhookWorkflow,
+    postWebhook: async () => ({ status: 200, body: { executionId: "950" } }),
+    getExecution: async () => {
+      throw new CliError("not-found", "404");
+    },
+  };
+  const code = await runRun(
+    "WF",
+    { poll: true, json: true, quiet: true },
+    () => client as any,
+  );
+  expect(code).toBe(0);
+  expect(emitted()).toMatchObject({ execution: { id: "950" } });
+});
+
+test("runRun returns exit 1 when the polled execution status is error", async () => {
+  const client = {
+    listWorkflows: async () => ({ data: [], nextCursor: null }),
+    getWorkflow: async () => webhookWorkflow,
+    postWebhook: async () => ({ status: 200, body: { executionId: "951" } }),
+    getExecution: async (id: string) => ({ id, status: "error" }),
+  };
+  const code = await runRun(
+    "WF",
+    { poll: true, json: true, quiet: true },
+    () => client as any,
+  );
+  expect(code).toBe(1);
+  expect(emitted()).toMatchObject({ execution: { id: "951", status: "error" } });
+});
+
+test("runRun reports bad-arguments for malformed inline sample data", async () => {
+  const client = {
+    listWorkflows: async () => ({ data: [], nextCursor: null }),
+    getWorkflow: async () => webhookWorkflow,
+    postWebhook: async () => ({ status: 200, body: {} }),
+  };
+  const code = await runRun(
+    "WF",
+    { dataInline: "{not json", json: true, quiet: true },
+    () => client as any,
+  );
+  expect(code).toBe(2);
+  expect(emitted()).toMatchObject({ error: { code: "bad-arguments" } });
+});

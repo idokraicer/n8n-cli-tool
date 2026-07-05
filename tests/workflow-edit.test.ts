@@ -22,7 +22,7 @@ function workflow(): WorkflowDefinition {
       {
         id: "agent-id",
         name: "Agent",
-        type: "n8n-nodes-base.agent",
+        type: "@n8n/n8n-nodes-langchain.agent",
         position: [300, 400],
         parameters: {
           options: { systemMessage: "old system" },
@@ -250,4 +250,29 @@ test("replaceNode rejects unknown nodes", () => {
       message: "Unknown node 'Missing'. Available: Code, Agent, Blank Code",
     }),
   );
+});
+
+test("setPrompt sets promptType 'define' when writing the default user field", () => {
+  const def = workflow();
+  setPrompt(def, "Agent", { user: "hello" });
+  expect((def.nodes[1].parameters as any).promptType).toBe("define");
+});
+
+test("setPrompt does not force promptType when a custom --user-path is used", () => {
+  const def = workflow();
+  setPrompt(def, "Agent", { user: "hello", userPath: "parameters.custom" });
+  expect((def.nodes[1].parameters as any).promptType).toBeUndefined();
+  expect((def.nodes[1].parameters as any).custom).toBe("hello");
+});
+
+test("setCode warns when the target node is not a Code node", () => {
+  const def = workflow();
+  const result = setCode(def, "Agent", "return 1;", "js");
+  expect(result.warning).toContain("not n8n-nodes-base.code");
+});
+
+test("setPrompt warns when the target node is not an Agent node", () => {
+  const def = workflow();
+  const results = setPrompt(def, "Code", { system: "sys" });
+  expect(results[0].warning).toContain("not @n8n/n8n-nodes-langchain.agent");
 });
