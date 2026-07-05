@@ -8,6 +8,10 @@ import { runExecutions } from "./commands/executions";
 import { runSearch } from "./commands/search";
 import { runGet } from "./commands/get";
 import { runRetry } from "./commands/retry";
+import { runPull } from "./commands/pull";
+import { runEdit, type EditSubcommand } from "./commands/edit";
+import { runValidate } from "./commands/validate";
+import { runRun } from "./commands/run";
 
 async function execute(
   opts: { json?: boolean; text?: boolean },
@@ -152,6 +156,66 @@ program
   .action(async (execution, _options, command) => {
     const opts = command.optsWithGlobals();
     await execute(opts, () => runGet(execution, opts));
+  });
+
+program
+  .command("pull")
+  .description("Fetch a workflow's full definition to a local file (diff-gated)")
+  .argument("<workflow>", "exact workflow name, id, or URL")
+  .option("--dir <path>", "workflows directory (or N8N_WORKFLOWS_DIR)")
+  .option("--out <path>", "destination file for a new workflow")
+  .option("--yes", "overwrite a differing local file without prompting")
+  .action(async (workflow, _options, command) => {
+    const opts = command.optsWithGlobals();
+    await execute(opts, () => runPull(workflow, opts));
+  });
+
+program
+  .command("edit")
+  .description("Edit a local workflow file: set-code | set-prompt | replace-node")
+  .argument("<workflow>", "exact workflow name (local file)")
+  .argument("<op>", "set-code | set-prompt | replace-node")
+  .option("--node <name>", "target node name")
+  .option("--code <str>", "inline code (set-code)")
+  .option("--code-file <path>", "code from a file (set-code)")
+  .option("--lang <lang>", "js | python (set-code)")
+  .option("--system <str>", "inline system prompt (set-prompt)")
+  .option("--system-file <path>", "system prompt from a file (set-prompt)")
+  .option("--user <str>", "inline user prompt (set-prompt)")
+  .option("--user-file <path>", "user prompt from a file (set-prompt)")
+  .option("--system-path <path>", "override system field path (set-prompt)")
+  .option("--user-path <path>", "override user field path (set-prompt)")
+  .option("--literal", "store prompt as a plain string, not an expression")
+  .option("--file <path>", "replacement node JSON (replace-node)")
+  .option("--dir <path>", "workflows directory (or N8N_WORKFLOWS_DIR)")
+  .action(async (workflow, op, _options, command) => {
+    const opts = command.optsWithGlobals();
+    await execute(opts, () => runEdit(workflow, op as EditSubcommand, opts));
+  });
+
+program
+  .command("validate")
+  .description("Validate a local workflow: references, diff vs live, stale $json")
+  .argument("<workflow>", "exact workflow name, id, or URL")
+  .option("--local", "local checks only; no live fetch or diff")
+  .option("--dir <path>", "workflows directory (or N8N_WORKFLOWS_DIR)")
+  .action(async (workflow, _options, command) => {
+    const opts = command.optsWithGlobals();
+    await execute(opts, () => runValidate(workflow, opts));
+  });
+
+program
+  .command("run")
+  .description("Test-run a workflow with sample data (webhook or internal /rest)")
+  .argument("<workflow>", "exact workflow name, id, or URL")
+  .option("--data <path>", "sample input JSON file")
+  .option("--data-inline <json>", "sample input as an inline JSON string")
+  .option("--node <name>", "trigger node to fire")
+  .option("--poll", "fetch and summarize the resulting execution")
+  .option("--dir <path>", "workflows directory (or N8N_WORKFLOWS_DIR)")
+  .action(async (workflow, _options, command) => {
+    const opts = command.optsWithGlobals();
+    await execute(opts, () => runRun(workflow, opts));
   });
 
 program.parseAsync().catch((err) => {
