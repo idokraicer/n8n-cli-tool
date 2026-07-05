@@ -11,6 +11,7 @@ import { runRetry } from "./commands/retry";
 import { runPull } from "./commands/pull";
 import { runEdit, type EditSubcommand } from "./commands/edit";
 import { runValidate } from "./commands/validate";
+import { runPush } from "./commands/push";
 import { runRun } from "./commands/run";
 
 async function execute(
@@ -202,6 +203,20 @@ program
   .action(async (workflow, _options, command) => {
     const opts = command.optsWithGlobals();
     await execute(opts, () => runValidate(workflow, opts));
+  });
+
+program
+  .command("push")
+  .description("Push a local workflow to n8n: merge changed nodes (default) or --whole")
+  .argument("<workflow>", "exact workflow name, id, or URL")
+  .option("--whole", "replace the entire workflow with the local file")
+  .option("--node <name...>", "restrict merge to these node(s)")
+  .option("--yes", "apply the push (required to write; otherwise a diff-only no-op)")
+  .option("--force", "push despite validation hard errors")
+  .option("--dir <path>", "workflows directory (or N8N_WORKFLOWS_DIR)")
+  .action(async (workflow, _options, command) => {
+    const opts = command.optsWithGlobals();
+    await execute(opts, () => runPush(workflow, opts));
   });
 
 program
