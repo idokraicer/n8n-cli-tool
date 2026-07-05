@@ -137,6 +137,16 @@ test("runWorkflow POSTs to /rest/workflows/:id/run with the session cookie", asy
   expect(res.status).toBe(200);
 });
 
+test("runWorkflow sends the browser-id header when provided (required by /rest run)", async () => {
+  let browserId: string | undefined;
+  const client = new N8nClient({
+    baseUrl: "https://n8n.test", apiKey: "k",
+    fetchImpl: stubFetch((_u, init) => { browserId = (init!.headers as any)["browser-id"]; return new Response(JSON.stringify({ data: { executionId: "42" } }), { status: 200 }); }),
+  });
+  await client.runWorkflow("W1", {}, { cookie: "n8n-auth=abc", browserId: "bid-123" });
+  expect(browserId).toBe("bid-123");
+});
+
 test("postWebhook POSTs the given url and returns parsed body", async () => {
   const client = new N8nClient({
     baseUrl: "https://n8n.test", apiKey: "k",

@@ -43,7 +43,11 @@ type ClientFactory = (instance: ResolvedInstance) => RunClient;
 const defaultClientFactory: ClientFactory = (instance) =>
   new N8nClient({ baseUrl: instance.baseUrl, apiKey: instance.apiKey });
 
-export type Session = Pick<SessionManager, "getCookie">;
+export type Session = {
+  getCookie: SessionManager["getCookie"];
+  refreshCookie?: SessionManager["refreshCookie"];
+  getBrowserId?: SessionManager["getBrowserId"];
+};
 export type SessionFactory = (instance: ResolvedInstance) => Session;
 
 const defaultSessionFactory: SessionFactory = (instance) =>
@@ -94,18 +98,38 @@ export async function runRun(
       );
       response = await client.postWebhook(request.url, request.body);
     } else {
-      const cookie = await sessionFactory(instance).getCookie();
+      const session = sessionFactory(instance);
+      const cookie = await session.getCookie();
       if (!cookie) {
         throw new CliError(
           "no-credentials",
           "run --node internal needs a saved session; n8n-helper login --email",
         );
       }
-      response = await client.runWorkflow(
-        workflow.id,
-        buildInternalRunPayload(def, plan.triggerNode, data),
-        { cookie },
-      );
+      const payload = buildInternalRunPayload(def, plan.triggerNode, data);
+      const browserId = session.getBrowserId?.();
+      try {
+        response = await client.runWorkflow(workflow.id, payload, {
+          cookie,
+          browserId,
+        });
+      } catch (err) {
+        // A 401 means the persisted session cookie expired: re-login once and retry.
+        if (
+          err instanceof CliError &&
+          err.code === "unauthorized" &&
+          session.refreshCookie
+        ) {
+          const fresh = await session.refreshCookie();
+          if (!fresh) throw err;
+          response = await client.runWorkflow(workflow.id, payload, {
+            cookie: fresh,
+            browserId: session.getBrowserId?.() ?? browserId,
+          });
+        } else {
+          throw err;
+        }
+      }
     }
 
     let summary = summarizeRun(response.body);

@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runRun, type SessionFactory } from "../src/commands/run";
-import type { WorkflowDefinition } from "../src/types";
+import { CliError, type WorkflowDefinition } from "../src/types";
 
 let home: string;
 let writes: string[];
@@ -210,4 +210,43 @@ test("runRun returns 2 when no supported trigger exists", async () => {
   );
 
   expect(code).toBe(2);
+});
+
+test("runRun refreshes the session and retries once on a 401 from the internal run", async () => {
+  const runCalls: string[] = [];
+  const client = {
+    listWorkflows: async () => ({ data: [], nextCursor: null }),
+    getWorkflow: async () => internalWorkflow,
+    runWorkflow: async (
+      _id: string,
+      _payload: unknown,
+      opts: { cookie: string },
+    ) => {
+      runCalls.push(opts.cookie);
+      if (opts.cookie === "stale") {
+        throw new CliError("unauthorized", "HTTP 401");
+      }
+      return { status: 200, body: { executionId: "77" } };
+    },
+  };
+  let refreshed = false;
+  const sessionFactory: SessionFactory = () => ({
+    getCookie: async () => "stale",
+    refreshCookie: async () => {
+      refreshed = true;
+      return "fresh";
+    },
+  });
+
+  const code = await runRun(
+    "WF",
+    { dataInline: '{"x":1}', json: true, quiet: true },
+    () => client as any,
+    sessionFactory,
+  );
+
+  expect(code).toBe(0);
+  expect(refreshed).toBe(true);
+  expect(runCalls).toEqual(["stale", "fresh"]);
+  expect(emitted()).toMatchObject({ mode: "internal", execution: { id: "77" } });
 });

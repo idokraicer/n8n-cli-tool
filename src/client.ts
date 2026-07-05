@@ -209,7 +209,7 @@ export class N8nClient {
   async runWorkflow(
     id: string,
     payload: unknown,
-    opts: { cookie: string },
+    opts: { cookie: string; browserId?: string },
   ): Promise<{ status: number; body: unknown }> {
     const url = `${this.baseUrl}/rest/workflows/${encodeURIComponent(id)}/run`;
     const headers: Record<string, string> = {
@@ -218,6 +218,9 @@ export class N8nClient {
       Accept: "application/json",
       Cookie: opts.cookie,
     };
+    // /rest/workflows/:id/run binds the session to the login browser-id and
+    // rejects the request (401) without this header.
+    if (opts.browserId) headers["browser-id"] = opts.browserId;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     let response: Response;
