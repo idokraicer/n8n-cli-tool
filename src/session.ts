@@ -98,6 +98,11 @@ export class SessionManager {
     return Boolean(stored?.email && stored.password);
   }
 
+  /** The persisted browser-id bound to the session, if a login has happened. */
+  getBrowserId(): string | undefined {
+    return this.stored()?.browserId;
+  }
+
   /** Saved cookie, or a fresh one when email/password are saved; null otherwise. */
   async getCookie(): Promise<string | null> {
     if (this.cookie !== undefined) return this.cookie;

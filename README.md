@@ -71,6 +71,11 @@ password is stored in the config file (mode 0600); to avoid that, pass
 | `search <value> <target>` | Locate a value in an execution or across a workflow's executions. |
 | `get <execution>` | Inspect an execution, drill into a node/path, or `--trace` its trigger chain. |
 | `retry <workflow>` | Re-run a workflow's failed executions (filters, concurrency, dry-run). |
+| `pull <workflow>` | Fetch a workflow's full definition to a local file (diff-gated). |
+| `edit <workflow> <op>` | Edit the local file: `set-code`, `set-prompt`, `replace-node`. |
+| `validate <workflow>` | Check node references, diff vs live, and stale `$json`. |
+| `push <workflow>` | Push local changes back: merge changed nodes (default) or `--whole`. |
+| `run <workflow>` | Test-run with sample data (webhook, or internal `/rest` for sub-workflows). |
 
 ## Examples
 
@@ -95,6 +100,18 @@ n8n-helper get 351694 --trace
 # Re-run failed executions from the last day (preview first with --dry-run)
 n8n-helper retry WF --status error --started-after 2026-06-09T00:00:00Z --dry-run
 n8n-helper retry WF --status error --started-after 2026-06-09T00:00:00Z
+
+# Edit loop: pull → edit locally → validate → push (every write is --yes-gated)
+n8n-helper pull "Apply Agreement"                              # live -> workflows/**/apply-agreement.json
+n8n-helper edit "Apply Agreement" set-code --node "Plan" --code-file plan.js
+n8n-helper edit "Sales AI Agent" set-prompt --node "AI Agent" --system-file prompt.md
+n8n-helper validate "Apply Agreement"
+n8n-helper push "Apply Agreement"                              # diff-only preview
+n8n-helper push "Apply Agreement" --node "AI Agent" --yes      # push just one node
+n8n-helper push "Apply Agreement" --whole --yes               # replace whole workflow
+
+# Test-run end-to-end with sample data
+n8n-helper run "Apply Agreement" --data sample.json --poll
 ```
 
 ## Output and exit codes
@@ -103,6 +120,8 @@ Output is JSON when piped and human-readable in a terminal (`--json` / `--text`
 override). In JSON mode, stdout carries only the JSON document; progress goes to
 stderr.
 
-- `0` — success (`search`: at least one match).
-- `1` — `search` only: no matches.
+- `0` — success (`search`: at least one match; `pull`/`push` without `--yes`: a
+  safe diff-only no-op still exits `0`).
+- `1` — normal negative: `search` found nothing; `validate` found hard errors;
+  `push` refused on validation failure (override with `--force`).
 - `2` — error (a JSON error envelope is printed in JSON mode).

@@ -97,3 +97,95 @@ test("a 403 maps to code forbidden", async () => {
     expect((e as CliError).code).toBe("forbidden");
   }
 });
+
+function stubFetch(handler: (url: string, init?: RequestInit) => Response) {
+  return async (url: string, init?: RequestInit) => handler(url, init);
+}
+
+test("getWorkflow GETs /api/v1/workflows/:id and returns the body", async () => {
+  let seenUrl = "";
+  const client = new N8nClient({
+    baseUrl: "https://n8n.test", apiKey: "k",
+    fetchImpl: stubFetch((url) => { seenUrl = url; return new Response(JSON.stringify({ id: "W1", name: "Foo", nodes: [], connections: {} }), { status: 200 }); }),
+  });
+  const wf = await client.getWorkflow("W1");
+  expect(seenUrl).toBe("https://n8n.test/api/v1/workflows/W1");
+  expect(wf.name).toBe("Foo");
+});
+
+test("updateWorkflow PUTs the body with the api key header", async () => {
+  let method = ""; let body = ""; let key = "";
+  const client = new N8nClient({
+    baseUrl: "https://n8n.test", apiKey: "k",
+    fetchImpl: stubFetch((url, init) => { void url; method = init!.method!; body = init!.body as string; key = (init!.headers as any)["X-N8N-API-KEY"]; return new Response(JSON.stringify({ id: "W1", name: "Foo", nodes: [], connections: {} }), { status: 200 }); }),
+  });
+  await client.updateWorkflow("W1", { name: "Foo", nodes: [], connections: {}, settings: {} });
+  expect(method).toBe("PUT");
+  expect(key).toBe("k");
+  expect(JSON.parse(body).name).toBe("Foo");
+});
+
+test("runWorkflow POSTs to /rest/workflows/:id/run with the session cookie", async () => {
+  let url = ""; let cookie = "";
+  const client = new N8nClient({
+    baseUrl: "https://n8n.test", apiKey: "k",
+    fetchImpl: stubFetch((u, init) => { url = u; cookie = (init!.headers as any).Cookie; return new Response(JSON.stringify({ data: { executionId: "42" } }), { status: 200 }); }),
+  });
+  const res = await client.runWorkflow("W1", { workflowData: {} }, { cookie: "n8n-auth=abc" });
+  expect(url).toBe("https://n8n.test/rest/workflows/W1/run");
+  expect(cookie).toBe("n8n-auth=abc");
+  expect(res.status).toBe(200);
+});
+
+test("runWorkflow sends the browser-id header when provided (required by /rest run)", async () => {
+  let browserId: string | undefined;
+  const client = new N8nClient({
+    baseUrl: "https://n8n.test", apiKey: "k",
+    fetchImpl: stubFetch((_u, init) => { browserId = (init!.headers as any)["browser-id"]; return new Response(JSON.stringify({ data: { executionId: "42" } }), { status: 200 }); }),
+  });
+  await client.runWorkflow("W1", {}, { cookie: "n8n-auth=abc", browserId: "bid-123" });
+  expect(browserId).toBe("bid-123");
+});
+
+test("sendWebhook uses the given method and body and returns parsed body", async () => {
+  let seenMethod: string | undefined;
+  let seenBody: unknown;
+  let seenContentType: string | undefined;
+  const client = new N8nClient({
+    baseUrl: "https://n8n.test", apiKey: "k",
+    fetchImpl: stubFetch((_u, init) => {
+      seenMethod = init!.method;
+      seenBody = init!.body;
+      seenContentType = (init!.headers as Record<string, string>)["Content-Type"];
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }),
+  });
+  const res = await client.sendWebhook("https://n8n.test/webhook/abc", {
+    method: "POST",
+    body: { a: 1 },
+  });
+  expect(seenMethod).toBe("POST");
+  expect(seenBody).toBe(JSON.stringify({ a: 1 }));
+  expect(seenContentType).toBe("application/json");
+  expect(res.status).toBe(200);
+  expect((res.body as any).ok).toBe(true);
+});
+
+test("sendWebhook omits the body and content-type for bodyless methods (GET)", async () => {
+  let seenMethod: string | undefined;
+  let seenBody: unknown;
+  let seenContentType: string | undefined;
+  const client = new N8nClient({
+    baseUrl: "https://n8n.test", apiKey: "k",
+    fetchImpl: stubFetch((_u, init) => {
+      seenMethod = init!.method;
+      seenBody = init!.body;
+      seenContentType = (init!.headers as Record<string, string>)["Content-Type"];
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }),
+  });
+  await client.sendWebhook("https://n8n.test/webhook/abc?a=1", { method: "GET" });
+  expect(seenMethod).toBe("GET");
+  expect(seenBody == null).toBe(true);
+  expect(seenContentType).toBeUndefined();
+});
