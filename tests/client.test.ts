@@ -147,12 +147,45 @@ test("runWorkflow sends the browser-id header when provided (required by /rest r
   expect(browserId).toBe("bid-123");
 });
 
-test("postWebhook POSTs the given url and returns parsed body", async () => {
+test("sendWebhook uses the given method and body and returns parsed body", async () => {
+  let seenMethod: string | undefined;
+  let seenBody: unknown;
+  let seenContentType: string | undefined;
   const client = new N8nClient({
     baseUrl: "https://n8n.test", apiKey: "k",
-    fetchImpl: stubFetch(() => new Response(JSON.stringify({ ok: true }), { status: 200 })),
+    fetchImpl: stubFetch((_u, init) => {
+      seenMethod = init!.method;
+      seenBody = init!.body;
+      seenContentType = (init!.headers as Record<string, string>)["Content-Type"];
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }),
   });
-  const res = await client.postWebhook("https://n8n.test/webhook/abc", { a: 1 });
+  const res = await client.sendWebhook("https://n8n.test/webhook/abc", {
+    method: "POST",
+    body: { a: 1 },
+  });
+  expect(seenMethod).toBe("POST");
+  expect(seenBody).toBe(JSON.stringify({ a: 1 }));
+  expect(seenContentType).toBe("application/json");
   expect(res.status).toBe(200);
   expect((res.body as any).ok).toBe(true);
+});
+
+test("sendWebhook omits the body and content-type for bodyless methods (GET)", async () => {
+  let seenMethod: string | undefined;
+  let seenBody: unknown;
+  let seenContentType: string | undefined;
+  const client = new N8nClient({
+    baseUrl: "https://n8n.test", apiKey: "k",
+    fetchImpl: stubFetch((_u, init) => {
+      seenMethod = init!.method;
+      seenBody = init!.body;
+      seenContentType = (init!.headers as Record<string, string>)["Content-Type"];
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }),
+  });
+  await client.sendWebhook("https://n8n.test/webhook/abc?a=1", { method: "GET" });
+  expect(seenMethod).toBe("GET");
+  expect(seenBody == null).toBe(true);
+  expect(seenContentType).toBeUndefined();
 });

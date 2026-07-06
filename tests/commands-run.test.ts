@@ -17,7 +17,7 @@ const webhookWorkflow: WorkflowDefinition = {
       id: "n1",
       name: "Webhook",
       type: "n8n-nodes-base.webhook",
-      parameters: { path: "orders/new" },
+      parameters: { path: "orders/new", httpMethod: "POST" },
     },
   ],
   connections: {},
@@ -62,12 +62,15 @@ function emitted() {
 }
 
 test("runRun posts sample data to a webhook trigger and emits webhook mode", async () => {
-  const calls: { url: string; body: unknown }[] = [];
+  const calls: { url: string; method: string; body: unknown }[] = [];
   const client = {
     listWorkflows: async () => ({ data: [], nextCursor: null }),
     getWorkflow: async () => webhookWorkflow,
-    postWebhook: async (url: string, body: unknown) => {
-      calls.push({ url, body });
+    sendWebhook: async (
+      url: string,
+      opts: { method: string; body?: unknown },
+    ) => {
+      calls.push({ url, method: opts.method, body: opts.body });
       // Arbitrary business JSON — must NOT be parsed as an n8n execution.
       return { status: 200, body: { status: "error", message: "business ok" } };
     },
@@ -81,7 +84,11 @@ test("runRun posts sample data to a webhook trigger and emits webhook mode", asy
 
   expect(code).toBe(0); // webhook success = HTTP 2xx, regardless of body
   expect(calls).toEqual([
-    { url: "https://h.co/webhook/orders/new", body: { orderId: 123 } },
+    {
+      url: "https://h.co/webhook/orders/new",
+      method: "POST",
+      body: { orderId: 123 },
+    },
   ]);
   const out = emitted();
   expect(out).toMatchObject({
@@ -101,8 +108,8 @@ test("runRun reads sample data from a file", async () => {
   const client = {
     listWorkflows: async () => ({ data: [], nextCursor: null }),
     getWorkflow: async () => webhookWorkflow,
-    postWebhook: async (_url: string, body: unknown) => {
-      calls.push(body);
+    sendWebhook: async (_url: string, opts: { method: string; body?: unknown }) => {
+      calls.push(opts.body);
       return { status: 200, body: { executionId: "901" } };
     },
   };
@@ -313,7 +320,7 @@ test("runRun reports bad-arguments for malformed inline sample data", async () =
   const client = {
     listWorkflows: async () => ({ data: [], nextCursor: null }),
     getWorkflow: async () => webhookWorkflow,
-    postWebhook: async () => ({ status: 200, body: {} }),
+    sendWebhook: async () => ({ status: 200, body: {} }),
   };
   const code = await runRun(
     "WF",

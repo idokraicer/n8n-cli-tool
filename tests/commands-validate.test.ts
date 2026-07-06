@@ -152,6 +152,33 @@ test("runValidate resolves the local file by the live name for a URL ref (missin
   expect(JSON.parse(stdout)).toMatchObject({ error: { code: "no-local-file" } });
 });
 
+test("--local validates a file by name with no credentials and no API scan", async () => {
+  // No API key / instance configured at all: --local must still work offline.
+  delete process.env.N8N_API_KEY;
+  const local = workflow([node("b", "Build Payload", { value: "={{ $json.id }}" })]);
+  writeWorkflow(local);
+  const clientFactory = () => ({
+    getWorkflow: async () => {
+      throw new Error("remote fetch should be skipped");
+    },
+    listWorkflows: async () => {
+      throw new Error("live API scan should be skipped");
+    },
+  });
+
+  const { result: code, stdout } = await captureStdout(() =>
+    runValidate("Workflow", { local: true, dir: workflowsDir, json: true, quiet: true }, clientFactory as any),
+  );
+  const payload = JSON.parse(stdout);
+
+  expect(code).toBe(0);
+  expect(payload.valid).toBe(true);
+  expect(payload.workflow.name).toBe("Workflow");
+  // No credentials → no instance host / url decoration, but validation still ran.
+  expect(payload).not.toHaveProperty("instance");
+  expect(payload.workflow).not.toHaveProperty("url");
+});
+
 test("--local skips remote fetch and omits remote-derived output", async () => {
   const local = workflow([
     node("b", "Build Payload", { value: "={{ $json.orderId }}" }),

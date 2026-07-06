@@ -85,12 +85,84 @@ function emitResult(
   }
 }
 
+// Instance details are only needed to decorate the output (host + workflow URL)
+// and, for remote validation, to fetch. Under --local we must never *require*
+// credentials, so resolve best-effort and tolerate a missing instance.
+function tryResolveInstance(input: {
+  host?: string;
+  baseUrl?: string;
+}): ResolvedInstance | null {
+  try {
+    return resolveInstance(input);
+  } catch (err) {
+    if (err instanceof CliError && err.code === "no-credentials") return null;
+    throw err;
+  }
+}
+
+async function runLocalValidate(
+  ref: string,
+  opts: ValidateOpts,
+  mode: "json" | "text",
+): Promise<number> {
+  try {
+    const parsed = parseN8nUrl(ref);
+    const id = parsed?.kind === "workflow" ? parsed.workflowId : undefined;
+    const dir = resolveWorkflowsDir(opts);
+    // Locate the file directly — no instance, no API. Try the ref as a name
+    // first, then (for URL/id refs) by the workflow id.
+    const file = findLocalFile(dir, ref) ?? (id ? findLocalFile(dir, id) : null);
+
+    if (!file) {
+      throw new CliError(
+        "no-local-file",
+        `No local workflow file for ${ref}. Run \`n8n-helper pull\` first.`,
+      );
+    }
+
+    let local: WorkflowDefinition;
+    let validation: ValidationResult | null = null;
+    try {
+      local = parseWorkflow(readWorkflowFile(file));
+    } catch (err) {
+      validation = parseFailureResult(err);
+      local = { name: ref, nodes: [], connections: {} };
+    }
+
+    validation ??= validateWorkflow(local, null);
+
+    const instance = tryResolveInstance({
+      host: opts.instance ?? parsed?.host,
+      baseUrl: parsed?.baseUrl,
+    });
+    const workflowId = id ?? local.id ?? ref;
+    const payload = {
+      ...(instance ? { instance: instance.host } : {}),
+      workflow: {
+        id: workflowId,
+        name: local.name,
+        ...(instance ? { url: workflowUrl(instance.baseUrl, workflowId) } : {}),
+      },
+      file,
+      ...validation,
+    };
+
+    emitResult(payload, validation, opts, String(workflowId));
+    return validation.valid ? 0 : 1;
+  } catch (err) {
+    emitError(toCliError(err), mode);
+    return 2;
+  }
+}
+
 export async function runValidate(
   ref: string,
   opts: ValidateOpts,
   clientFactory: ClientFactory = defaultClientFactory,
 ): Promise<number> {
   const mode = resolveOutputMode(opts);
+
+  if (opts.local) return runLocalValidate(ref, opts, mode);
 
   try {
     const parsed = parseN8nUrl(ref);
@@ -103,9 +175,9 @@ export async function runValidate(
       host: instance.host,
       client,
     });
-    // Fetch remote first (unless --local) so we can locate the local file by
-    // the workflow's real name even for a bare-id or URL ref.
-    const remote = opts.local ? null : await client.getWorkflow(resolved.id);
+    // Fetch remote first so we can locate the local file by the workflow's real
+    // name even for a bare-id or URL ref. (--local is handled offline above.)
+    const remote = await client.getWorkflow(resolved.id);
     const dir = resolveWorkflowsDir(opts);
     const file =
       findLocalFile(dir, remote?.name ?? resolved.name) ??

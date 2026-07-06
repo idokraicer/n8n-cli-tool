@@ -33,7 +33,7 @@ type RunClient = Pick<
   N8nClient,
   | "getWorkflow"
   | "listWorkflows"
-  | "postWebhook"
+  | "sendWebhook"
   | "runWorkflow"
   | "getExecution"
 >;
@@ -103,7 +103,10 @@ export async function runRun(
         plan.triggerNode,
         data,
       );
-      response = await client.postWebhook(request.url, request.body);
+      response = await client.sendWebhook(request.url, {
+        method: request.method,
+        body: request.body,
+      });
     } else {
       const session = sessionFactory(instance);
       const cookie = await session.getCookie();

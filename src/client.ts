@@ -250,21 +250,21 @@ export class N8nClient {
     return { status: response.status, body };
   }
 
-  async postWebhook(
+  async sendWebhook(
     url: string,
-    body: unknown,
+    opts: { method: string; body?: unknown },
   ): Promise<{ status: number; body: unknown }> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    const hasBody = opts.body !== undefined;
+    const headers: Record<string, string> = { Accept: "application/json" };
+    if (hasBody) headers["Content-Type"] = "application/json";
     let response: Response;
     try {
       response = await this.fetchImpl(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify(body),
+        method: opts.method,
+        headers,
+        ...(hasBody ? { body: JSON.stringify(opts.body) } : {}),
         signal: controller.signal,
       });
     } catch (err) {

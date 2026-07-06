@@ -74,14 +74,60 @@ test("detectTrigger throws when no supported trigger exists", () => {
   expect(() => detectTrigger(def)).toThrow("No supported trigger; pass --node");
 });
 
-test("buildWebhookRequest builds the production webhook URL and keeps the body", () => {
-  const data = { orderId: 123 };
+test("buildWebhookRequest defaults to GET and encodes sample data as query params", () => {
+  const data = { orderId: 123, tag: "vip" };
 
+  // The Webhook node has no httpMethod, so it defaults to GET like n8n does;
+  // GET carries no body, so sample data rides in the query string instead.
   expect(
     buildWebhookRequest("https://n8n.example", webhookWorkflow, "Webhook", data),
   ).toEqual({
+    url: "https://n8n.example/webhook/orders/new?orderId=123&tag=vip",
+    method: "GET",
+    body: undefined,
+  });
+});
+
+test("buildWebhookRequest honors POST and puts sample data in the body", () => {
+  const data = { orderId: 123 };
+  const def: WorkflowDefinition = {
+    ...webhookWorkflow,
+    nodes: [
+      {
+        id: "n1",
+        name: "Webhook",
+        type: "n8n-nodes-base.webhook",
+        parameters: { path: "orders/new", httpMethod: "POST" },
+      },
+    ],
+  };
+
+  expect(buildWebhookRequest("https://n8n.example", def, "Webhook", data)).toEqual({
     url: "https://n8n.example/webhook/orders/new",
+    method: "POST",
     body: data,
+  });
+});
+
+test("buildWebhookRequest resolves the first method when multiple are configured", () => {
+  const def: WorkflowDefinition = {
+    ...webhookWorkflow,
+    nodes: [
+      {
+        id: "n1",
+        name: "Webhook",
+        type: "n8n-nodes-base.webhook",
+        parameters: { path: "orders/new", httpMethod: ["PUT", "POST"] },
+      },
+    ],
+  };
+
+  expect(
+    buildWebhookRequest("https://n8n.example", def, "Webhook", { a: 1 }),
+  ).toEqual({
+    url: "https://n8n.example/webhook/orders/new",
+    method: "PUT",
+    body: { a: 1 },
   });
 });
 

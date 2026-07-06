@@ -47,12 +47,41 @@ export function detectTrigger(
   throw new CliError("bad-arguments", "No supported trigger; pass --node");
 }
 
+// Methods whose test payload rides in the request body. GET/HEAD carry no body,
+// so their sample data is encoded as query params instead (matching how n8n's
+// Webhook node reads inputs for those verbs).
+const BODY_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+function resolveWebhookMethod(raw: unknown): string {
+  // n8n stores httpMethod as a string, or an array when "multiple methods" is
+  // on; default to GET (the Webhook node's own default) when unset.
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value.trim().toUpperCase();
+  }
+  return "GET";
+}
+
+function appendQueryParams(url: string, data: unknown): string {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return url;
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+    if (value === undefined || value === null) continue;
+    params.append(
+      key,
+      typeof value === "object" ? JSON.stringify(value) : String(value),
+    );
+  }
+  const query = params.toString();
+  return query ? `${url}?${query}` : url;
+}
+
 export function buildWebhookRequest(
   baseUrl: string,
   def: WorkflowDefinition,
   triggerNode: string,
   data: unknown,
-): { url: string; body: unknown } {
+): { url: string; method: string; body: unknown } {
   const node = findNode(def, triggerNode);
   const webhookPath = node.parameters?.path;
   if (typeof webhookPath !== "string" || webhookPath.length === 0) {
@@ -61,10 +90,12 @@ export function buildWebhookRequest(
       `Webhook node "${triggerNode}" has no parameters.path.`,
     );
   }
-  return {
-    url: `${baseUrl.replace(/\/+$/, "")}/webhook/${webhookPath.replace(/^\/+/, "")}`,
-    body: data,
-  };
+  const method = resolveWebhookMethod(node.parameters?.httpMethod);
+  const url = `${baseUrl.replace(/\/+$/, "")}/webhook/${webhookPath.replace(/^\/+/, "")}`;
+  if (BODY_METHODS.has(method)) {
+    return { url, method, body: data };
+  }
+  return { url: appendQueryParams(url, data), method, body: undefined };
 }
 
 export function buildInternalRunPayload(

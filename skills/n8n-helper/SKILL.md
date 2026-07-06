@@ -148,7 +148,8 @@ n8n-helper run "Sales AI Agent"  --data-inline '{"message":"hi"}' --poll
 ```
 
 Field targets `edit` writes: `set-code` → a Code node's `parameters.jsCode`
-(`--lang python` → `pythonCode`); `set-prompt` → an AI Agent node's
+(`--lang python` → `pythonCode`, and also flips `parameters.language` so n8n runs
+the body you just wrote); `set-prompt` → an AI Agent node's
 `parameters.options.systemMessage` (system) and `parameters.text` (user);
 `replace-node` swaps a whole node object by name (preserving its `id`/position).
 Prompt/code values that were n8n expressions keep their leading `=` unless you
@@ -161,8 +162,10 @@ pass `--literal`.
   Read the printed diff before `--yes`; use `--node` (or `--whole`) to be exact.
 - **`edit` takes the exact workflow name** (it operates on the local file by
   name), not an id or URL. Run `pull` first if you don't have the file.
-- **`run` on a webhook workflow requires it to be active** (it POSTs the
-  production `/webhook/<path>`). For sub-workflows (Execute-Workflow-Trigger),
+- **`run` on a webhook workflow requires it to be active** (it calls the
+  production `/webhook/<path>` using the Webhook node's own `httpMethod` —
+  defaulting to GET, with sample data sent as a body for POST/PUT/PATCH/DELETE or
+  as query params for GET/HEAD). For sub-workflows (Execute-Workflow-Trigger),
   `run` uses n8n's internal `/rest` API with your session login (like `retry`)
   and sends the `browser-id` the session was created with. `run --poll` exits
   non-zero if the polled execution ended in `error`/`crashed`.

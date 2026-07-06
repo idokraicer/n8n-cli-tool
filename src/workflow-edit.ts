@@ -112,7 +112,12 @@ export function setCode(
   const result = setStringField(node, field, code);
   if (node.type !== CODE_NODE_TYPE) {
     result.warning = `Node '${nodeName}' is type '${node.type}', not ${CODE_NODE_TYPE}; ${field} may be ignored at runtime.`;
+    return result;
   }
+  // n8n's Code node selects which body to run (jsCode vs pythonCode) from
+  // parameters.language. Without setting it, editing pythonCode on a JavaScript
+  // node leaves the old jsCode executing and the new Python silently ignored.
+  setByPath(node, "parameters.language", lang === "js" ? "javaScript" : "python");
   return result;
 }
 

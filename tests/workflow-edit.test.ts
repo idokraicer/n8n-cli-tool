@@ -51,6 +51,7 @@ test("setCode sets JavaScript code and reports character counts", () => {
   const result = setCode(def, "Code", "return 123;", "js");
 
   expect(def.nodes[0].parameters?.jsCode).toBe("return 123;");
+  expect(def.nodes[0].parameters?.language).toBe("javaScript");
   expect(result).toEqual({
     node: "Code",
     field: "parameters.jsCode",
@@ -65,6 +66,7 @@ test("setCode sets Python code and treats an undefined old value as zero chars",
   const result = setCode(def, "Blank Code", "return 123", "python");
 
   expect(def.nodes[2].parameters?.pythonCode).toBe("return 123");
+  expect(def.nodes[2].parameters?.language).toBe("python");
   expect(result).toEqual({
     node: "Blank Code",
     field: "parameters.pythonCode",
@@ -72,6 +74,16 @@ test("setCode sets Python code and treats an undefined old value as zero chars",
     beforeChars: 0,
     afterChars: "return 123".length,
   });
+});
+
+test("setCode switches an existing JavaScript node's language to python", () => {
+  const def = workflow();
+  // The "Code" node starts as JavaScript (jsCode). Writing Python must flip
+  // parameters.language, or n8n keeps executing the stale jsCode.
+  setCode(def, "Code", "print(1)", "python");
+
+  expect(def.nodes[0].parameters?.pythonCode).toBe("print(1)");
+  expect(def.nodes[0].parameters?.language).toBe("python");
 });
 
 test("setPrompt sets only the default system prompt path", () => {
