@@ -12,6 +12,7 @@ import { runPull } from "./commands/pull";
 import { runEdit, type EditSubcommand } from "./commands/edit";
 import { runValidate } from "./commands/validate";
 import { runPush } from "./commands/push";
+import { runCreate } from "./commands/create";
 import { runRun } from "./commands/run";
 
 async function execute(
@@ -217,6 +218,18 @@ program
   .action(async (workflow, _options, command) => {
     const opts = command.optsWithGlobals();
     await execute(opts, () => runPush(workflow, opts));
+  });
+
+program
+  .command("create")
+  .description("Create a NEW workflow on n8n from a local JSON file (created inactive)")
+  .argument("<file>", "path to a workflow JSON file")
+  .option("--name <name>", "override the workflow name from the file")
+  .option("--yes", "apply the create (required to write; otherwise a preview no-op)")
+  .option("--force", "create despite validation hard errors")
+  .action(async (file, _options, command) => {
+    const opts = command.optsWithGlobals();
+    await execute(opts, () => runCreate(file, opts));
   });
 
 program

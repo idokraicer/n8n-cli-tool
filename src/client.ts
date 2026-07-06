@@ -206,6 +206,15 @@ export class N8nClient {
     );
   }
 
+  createWorkflow(
+    body: Partial<WorkflowDefinition>,
+  ): Promise<WorkflowDefinition> {
+    return this.request<WorkflowDefinition>("/workflows", {
+      method: "POST",
+      body,
+    });
+  }
+
   async runWorkflow(
     id: string,
     payload: unknown,
