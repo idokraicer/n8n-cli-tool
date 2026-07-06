@@ -173,21 +173,31 @@ program
 
 program
   .command("edit")
-  .description("Edit a local workflow file: set-code | set-prompt | replace-node")
-  .argument("<workflow>", "exact workflow name (local file)")
+  .description("Edit a workflow: set-code | set-prompt | replace-node")
+  .argument(
+    "<workflow>",
+    "workflow name (local file), or name/id/URL with --remote",
+  )
   .argument("<op>", "set-code | set-prompt | replace-node")
   .option("--node <name>", "target node name")
-  .option("--code <str>", "inline code (set-code)")
-  .option("--code-file <path>", "code from a file (set-code)")
+  .option("--code <str>", "inline code (set-code); '-' reads stdin")
+  .option("--code-file <path>", "code from a file (set-code); '-' reads stdin")
   .option("--lang <lang>", "js | python (set-code)")
-  .option("--system <str>", "inline system prompt (set-prompt)")
-  .option("--system-file <path>", "system prompt from a file (set-prompt)")
-  .option("--user <str>", "inline user prompt (set-prompt)")
-  .option("--user-file <path>", "user prompt from a file (set-prompt)")
+  .option("--system <str>", "inline system prompt (set-prompt); '-' reads stdin")
+  .option("--system-file <path>", "system prompt from a file; '-' reads stdin")
+  .option("--user <str>", "inline user prompt (set-prompt); '-' reads stdin")
+  .option("--user-file <path>", "user prompt from a file; '-' reads stdin")
   .option("--system-path <path>", "override system field path (set-prompt)")
   .option("--user-path <path>", "override user field path (set-prompt)")
   .option("--literal", "store prompt as a plain string, not an expression")
-  .option("--file <path>", "replacement node JSON (replace-node)")
+  .option("--file <path>", "replacement node JSON (replace-node); '-' reads stdin")
+  .option(
+    "--remote",
+    "edit the live workflow directly (fetch, apply, preview; --yes to push)",
+  )
+  .option("--whole", "push the whole workflow, not just the edited node (--remote)")
+  .option("--yes", "apply the edit to the live workflow (--remote)")
+  .option("--force", "push even if validation finds errors (--remote)")
   .option("--dir <path>", "workflows directory (or N8N_WORKFLOWS_DIR)")
   .action(async (workflow, op, _options, command) => {
     const opts = command.optsWithGlobals();

@@ -55,7 +55,7 @@ Most commands accept either a full n8n URL or a bare id. **Prefer a full URL whe
 | `get <execution>` | Inspect an execution, drill into a node/path, or `--trace` its trigger chain. |
 | `retry <workflow>` | Re-run failed executions (needs session auth; preview with `--dry-run`). |
 | `pull <workflow>` | Fetch a workflow's full definition to a local file (diff-gated). |
-| `edit <workflow> <op>` | Edit the local file: `set-code`, `set-prompt`, `replace-node`. |
+| `edit <workflow> <op>` | Edit a workflow (`set-code`/`set-prompt`/`replace-node`); local file, or live with `--remote`. Content options take `-` for stdin. |
 | `validate <workflow>` | Check node references, diff vs live, and stale `$json`. |
 | `push <workflow>` | Push local changes back: merge changed nodes (default) or `--whole`. |
 | `run <workflow>` | Test-run with sample data (webhook, or internal `/rest` for sub-workflows). |
@@ -114,6 +114,33 @@ one-file-per-workflow JSON (default `./workflows`, override with `--dir` or
 `N8N_WORKFLOWS_DIR`). Workflows are referenced by their **exact n8n name** (or a
 bare id / URL). Files are found recursively by the `name` field inside them.
 
+### Fastest path (recommended for agents): `edit --remote` + stdin
+
+`edit --remote` collapses the whole loop into one command with **no local file
+and no `--dir`**: it fetches the live workflow (by **name, id, or URL**), applies
+your edit in memory, validates, and prints the diff. It's **preview-gated** like
+everything else — without `--yes` it pushes nothing; add `--yes` to apply.
+Content options accept `-` to **read stdin**, so you heredoc code/prompts
+straight in — no scratchpad file, no shell-quoting:
+
+```bash
+# Preview (safe, no write): fetch live, apply, show the diff.
+n8n-helper edit "Apply Agreement" set-code --node "Plan Agreement" --remote --code - <<'EOF'
+const approved = $input.first().json.approved;
+return [{ json: { approved } }];
+EOF
+
+# Same call + --yes applies it to the live workflow (single-node merge by default).
+n8n-helper edit "Apply Agreement" set-prompt --node "AI Agent" --remote --yes --system - <<'EOF'
+You are a concise sales assistant.
+EOF
+```
+
+Read the preview's `diff` and `validation`, then re-run with `--yes` once approved.
+`--whole` pushes the entire workflow instead of just the edited node; `--force`
+pushes despite validation errors. The local file loop below is still there for
+multi-edit sessions or when you want the JSON on disk.
+
 **Approval discipline (do not skip):** every write is diff-gated. `pull`
 (overwriting a differing local file) and `push` do **nothing** without `--yes`
 — they print a diff and stop. Show the user that diff and get their explicit
@@ -153,15 +180,24 @@ the body you just wrote); `set-prompt` → an AI Agent node's
 `parameters.options.systemMessage` (system) and `parameters.text` (user);
 `replace-node` swaps a whole node object by name (preserving its `id`/position).
 Prompt/code values that were n8n expressions keep their leading `=` unless you
-pass `--literal`.
+pass `--literal`. Any content option (`--code`/`--code-file`, `--system`/`-file`,
+`--user`/`-file`, replace-node `--file`) accepts `-` to read **stdin** — one `-`
+per command, since stdin is a single stream.
 
 **Gotchas:**
 - **Prefer `push --node <name>` for precise pushes.** Plain `push` (merge, no
   `--node`) sends *every* node whose object differs from live — which includes
   nodes that changed **live** since your `pull`, not just the ones you edited.
   Read the printed diff before `--yes`; use `--node` (or `--whole`) to be exact.
-- **`edit` takes the exact workflow name** (it operates on the local file by
-  name), not an id or URL. Run `pull` first if you don't have the file.
+- **Local `edit` takes the exact workflow name** (it operates on the local file
+  by name), not an id or URL — run `pull` first, or use `--remote` (which accepts
+  name, id, or URL and needs no local file). The `no-local-file` error's `hint`
+  tells you which to do.
+- **Failed pushes now say why.** n8n's public `PUT` is strict; the CLI strips
+  read-only fields and editor-only `settings` keys (e.g. `binaryMode`,
+  `availableInMCP`) automatically and reports them as `strippedSettingsKeys`. On
+  a real API rejection the error carries n8n's own message in `message`/`details`
+  plus a `hint`.
 - **`run` on a webhook workflow requires it to be active** (it calls the
   production `/webhook/<path>` using the Webhook node's own `httpMethod` —
   defaulting to GET, with sample data sent as a body for POST/PUT/PATCH/DELETE or
@@ -184,16 +220,19 @@ Output is **JSON when piped/non-TTY** and human-readable in a terminal. Force wi
 can exit `0` and still have done nothing on purpose (a diff-only preview). Key
 off the structured fields:
 
-- **`wrote` / `pushed` booleans** — `pull` and `push` return `false` here when
-  they only previewed a diff (no `--yes`). Exit `0` ≠ "applied".
+- **`wrote` / `pushed` booleans** — `pull`, `push`, and `edit --remote` return
+  `false` here when they only previewed a diff (no `--yes`). Exit `0` ≠ "applied".
 - **`hint`** — present on every safe no-op and every refusal (and in the error
   envelope). It is the machine-readable next step, e.g. *"Preview only — re-run
   with --yes to apply it"* or *"Refused: validation found N errors… or --force"*.
   When you see a `hint`, that is your instruction for the next call.
 - **`validation.valid` / `validation.errorCount`** on `push`/`validate` — fix
   the reported `errors[]` before pushing, or pass `--force`.
-- **`nodesExcluded`** on `push` merge — nodes the merge did not send (added/
-  removed/connection changes); use `--whole` if you need them.
+- **`nodesExcluded`** on `push`/`edit --remote` merge — nodes the merge did not
+  send (added/removed/connection changes); use `--whole` if you need them.
+- **`strippedSettingsKeys`** on `push`/`edit --remote` — editor-only `settings`
+  keys dropped so n8n's strict public `PUT` accepts the body (informational; not
+  an error).
 - **error `code`** — a stable slug to branch on (`no-local-file`,
   `no-credentials`, `bad-arguments`, `unauthorized`, `not-found`, `rate-limited`,
   `network-error`, …). Each blocking error carries a `hint` with the fix.

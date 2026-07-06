@@ -148,7 +148,28 @@ test("stripForPut keeps only writable fields, defaults settings, and reports str
       "updatedAt",
       "pinData",
     ],
+    strippedSettingsKeys: [],
   });
+});
+
+test("stripForPut allowlists settings and reports editor-only keys it drops", () => {
+  const def: WorkflowDefinition = {
+    id: "WF",
+    name: "Workflow",
+    nodes: [node("a", "A")],
+    connections: {},
+    // executionOrder is writable; binaryMode/availableInMCP are editor-only keys
+    // n8n's public PUT rejects (this is the exact 400 seen in the field).
+    settings: {
+      executionOrder: "v1",
+      binaryMode: "separate",
+      availableInMCP: false,
+    },
+  };
+
+  const { body, strippedSettingsKeys } = stripForPut(def);
+  expect(body.settings).toEqual({ executionOrder: "v1" });
+  expect(strippedSettingsKeys).toEqual(["binaryMode", "availableInMCP"]);
 });
 
 test("mergeNodes throws when an explicitly named node is absent locally", () => {

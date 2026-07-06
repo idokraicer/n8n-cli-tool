@@ -9,17 +9,8 @@ import {
   resolveWorkflowsDir,
 } from "../workflow-store";
 import { parseWorkflow } from "../workflow-data";
-import {
-  diffWorkflows,
-  validateWorkflow,
-  type ValidationResult,
-} from "../workflow-validate";
-import { mergeNodes, stripForPut } from "../workflow-merge";
-import {
-  CliError,
-  type ResolvedInstance,
-  type WorkflowDefinition,
-} from "../types";
+import { preparePush, validationSummary } from "../workflow-push";
+import { CliError, type ResolvedInstance } from "../types";
 
 export interface PushOpts {
   whole?: boolean;
@@ -40,18 +31,6 @@ const defaultClientFactory: ClientFactory = (instance) =>
 
 function workflowUrl(baseUrl: string, id: string): string {
   return `${baseUrl.replace(/\/+$/, "")}/workflow/${encodeURIComponent(id)}`;
-}
-
-function validationSummary(validation: ValidationResult): {
-  valid: boolean;
-  errorCount: number;
-  warningCount: number;
-} {
-  return {
-    valid: validation.valid,
-    errorCount: validation.summary.errorCount,
-    warningCount: validation.summary.warningCount,
-  };
 }
 
 export async function runPush(
@@ -91,33 +70,17 @@ export async function runPush(
 
     const local = parseWorkflow(readWorkflowFile(file));
 
-    const pushMode: "merge" | "whole" = opts.whole ? "whole" : "merge";
-    let pushDef: WorkflowDefinition;
-    let nodesUpdated: string[];
-    let nodesExcluded: {
-      addedNodes: string[];
-      removedNodes: string[];
-      connectionsChanged: boolean;
-    };
-
-    if (pushMode === "whole") {
-      pushDef = local;
-      nodesUpdated = (local.nodes ?? []).map((node) => node.name);
-      nodesExcluded = {
-        addedNodes: [],
-        removedNodes: [],
-        connectionsChanged: false,
-      };
-    } else {
-      const plan = mergeNodes(live, local, opts.node ?? null);
-      pushDef = plan.merged;
-      nodesUpdated = plan.updated;
-      nodesExcluded = plan.excluded;
-    }
-
-    const validation = validateWorkflow(pushDef, live);
-    const diff = diffWorkflows(pushDef, live);
-    const { body, strippedFields } = stripForPut(pushDef);
+    const {
+      pushDef,
+      mode: pushMode,
+      nodesUpdated,
+      nodesExcluded,
+      validation,
+      diff,
+      body,
+      strippedFields,
+      strippedSettingsKeys,
+    } = preparePush(live, local, { whole: opts.whole, node: opts.node ?? null });
 
     const basePayload = {
       instance: instance.host,
@@ -131,6 +94,7 @@ export async function runPush(
       nodesUpdated,
       nodesExcluded,
       strippedFields,
+      strippedSettingsKeys,
       validation: validationSummary(validation),
       diff,
     };

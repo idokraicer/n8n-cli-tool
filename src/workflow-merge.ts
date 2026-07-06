@@ -16,6 +16,37 @@ const READ_ONLY_FIELDS = [
   "pinData",
 ] as const;
 
+// n8n's public API `PUT /workflows/:id` validates `settings` with
+// additionalProperties:false, so any key outside its schema (editor/enterprise
+// extras like binaryMode, availableInMCP) makes the whole push 400. Send only
+// the documented, writable settings keys.
+const PUT_SETTINGS_KEYS: readonly string[] = [
+  "saveExecutionProgress",
+  "saveManualExecutions",
+  "saveDataErrorExecution",
+  "saveDataSuccessExecution",
+  "executionTimeout",
+  "errorWorkflow",
+  "timezone",
+  "executionOrder",
+  "callerPolicy",
+  "callerIds",
+];
+
+function sanitizeSettings(settings: unknown): {
+  settings: Record<string, unknown>;
+  strippedSettingsKeys: string[];
+} {
+  if (!isRecord(settings)) return { settings: {}, strippedSettingsKeys: [] };
+  const kept: Record<string, unknown> = {};
+  const strippedSettingsKeys: string[] = [];
+  for (const [key, value] of Object.entries(settings)) {
+    if (PUT_SETTINGS_KEYS.includes(key)) kept[key] = value;
+    else strippedSettingsKeys.push(key);
+  }
+  return { settings: kept, strippedSettingsKeys };
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -136,12 +167,14 @@ export function mergeNodes(
 export function stripForPut(def: WorkflowDefinition): {
   body: Partial<WorkflowDefinition>;
   strippedFields: string[];
+  strippedSettingsKeys: string[];
 } {
+  const { settings, strippedSettingsKeys } = sanitizeSettings(def.settings);
   const body: Partial<WorkflowDefinition> = {
     name: def.name,
     nodes: def.nodes,
     connections: def.connections ?? {},
-    settings: def.settings ?? {},
+    settings,
   };
 
   if (hasOwn(def, "staticData") && def.staticData !== undefined) {
@@ -150,5 +183,5 @@ export function stripForPut(def: WorkflowDefinition): {
 
   const strippedFields = READ_ONLY_FIELDS.filter((field) => hasOwn(def, field));
 
-  return { body, strippedFields };
+  return { body, strippedFields, strippedSettingsKeys };
 }

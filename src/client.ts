@@ -30,6 +30,38 @@ function statusToCode(status: number): string {
   return "n8n-error";
 }
 
+// n8n error responses carry the real reason in a `message` field (e.g.
+// "request/body/settings must NOT have additional properties"). Pull it out so
+// the CLI surfaces it instead of a bare status code.
+function extractApiMessage(body: unknown): string | undefined {
+  if (typeof body === "string") return body.trim() || undefined;
+  if (body && typeof body === "object") {
+    const message = (body as Record<string, unknown>).message;
+    if (typeof message === "string" && message.trim()) return message.trim();
+  }
+  return undefined;
+}
+
+function apiErrorHint(
+  code: string,
+  status: number,
+  detail: string | undefined,
+): string | undefined {
+  if (code === "unauthorized")
+    return "n8n rejected the API key — check N8N_API_KEY or re-run `n8n-helper login`.";
+  if (code === "forbidden")
+    return "The API key lacks permission for this resource on this instance.";
+  if (code === "not-found")
+    return "No workflow/resource with that id on this instance — verify the id (or run a search/list first).";
+  if (code === "rate-limited")
+    return "n8n rate-limited the request; retry in a moment.";
+  if (status === 400)
+    return detail
+      ? `n8n rejected the request body: ${detail}. Fix that field (or, on push, it may need stripping before PUT).`
+      : "n8n rejected the request body (400); see `details` for the exact field it objected to.";
+  return undefined;
+}
+
 async function parseResponseBody(response: Response): Promise<unknown> {
   const text = await response.text();
   if (!text) return null;
@@ -103,9 +135,14 @@ export class N8nClient {
       }
 
       if (!response.ok) {
+        const errorBody = await parseResponseBody(response);
+        const detail = extractApiMessage(errorBody);
+        const code = statusToCode(response.status);
         throw new CliError(
-          statusToCode(response.status),
-          `n8n API error ${response.status} on ${url.pathname}`,
+          code,
+          `n8n API error ${response.status} on ${url.pathname}${detail ? `: ${detail}` : ""}`,
+          errorBody ?? undefined,
+          apiErrorHint(code, response.status, detail),
         );
       }
 

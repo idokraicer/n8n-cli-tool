@@ -98,6 +98,30 @@ test("a 403 maps to code forbidden", async () => {
   }
 });
 
+test("a 400 surfaces n8n's error message and attaches the body as details", async () => {
+  const client = clientWith(async () =>
+    jsonResponse(
+      { message: "request/body/settings must NOT have additional properties" },
+      400,
+    ),
+  );
+  try {
+    await client.updateWorkflow("W1", { name: "Foo", nodes: [], connections: {} });
+    throw new Error("should have thrown");
+  } catch (e) {
+    const err = e as CliError;
+    expect(err.code).toBe("n8n-error");
+    // The real reason is in the message, not just a bare status code.
+    expect(err.message).toContain(
+      "request/body/settings must NOT have additional properties",
+    );
+    // The full parsed body is available for programmatic consumers.
+    expect((err.details as any).message).toContain("additional properties");
+    // A 400 carries an actionable hint quoting the rejected field.
+    expect(err.hint).toContain("additional properties");
+  }
+});
+
 function stubFetch(handler: (url: string, init?: RequestInit) => Response) {
   return async (url: string, init?: RequestInit) => handler(url, init);
 }

@@ -72,7 +72,7 @@ password is stored in the config file (mode 0600); to avoid that, pass
 | `get <execution>` | Inspect an execution, drill into a node/path, or `--trace` its trigger chain. |
 | `retry <workflow>` | Re-run a workflow's failed executions (filters, concurrency, dry-run). |
 | `pull <workflow>` | Fetch a workflow's full definition to a local file (diff-gated). |
-| `edit <workflow> <op>` | Edit the local file: `set-code`, `set-prompt`, `replace-node`. |
+| `edit <workflow> <op>` | Edit a workflow (`set-code`, `set-prompt`, `replace-node`) — local file, or live with `--remote`; content options accept `-` for stdin. |
 | `validate <workflow>` | Check node references, diff vs live, and stale `$json`. |
 | `push <workflow>` | Push local changes back: merge changed nodes (default) or `--whole`. |
 | `run <workflow>` | Test-run with sample data (webhook, or internal `/rest` for sub-workflows). |
@@ -101,7 +101,13 @@ n8n-helper get 351694 --trace
 n8n-helper retry WF --status error --started-after 2026-06-09T00:00:00Z --dry-run
 n8n-helper retry WF --status error --started-after 2026-06-09T00:00:00Z
 
-# Edit loop: pull → edit locally → validate → push (every write is --yes-gated)
+# Fileless edit (fastest): fetch live, apply, preview; --yes to push. '-' reads stdin.
+n8n-helper edit "Apply Agreement" set-code --node "Plan" --remote --code - <<'EOF'
+return [{ json: { approved: $input.first().json.approved } }];
+EOF
+n8n-helper edit "Apply Agreement" set-code --node "Plan" --remote --yes --code - < plan.js
+
+# Local edit loop: pull → edit locally → validate → push (every write is --yes-gated)
 n8n-helper pull "Apply Agreement"                              # live -> workflows/**/apply-agreement.json
 n8n-helper edit "Apply Agreement" set-code --node "Plan" --code-file plan.js
 n8n-helper edit "Sales AI Agent" set-prompt --node "AI Agent" --system-file prompt.md
