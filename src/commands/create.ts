@@ -72,16 +72,35 @@ export async function runCreate(
 
     // No live counterpart yet — local reference checks only.
     const validation = validateWorkflow(local, null);
-    // The public API rejects unknown/read-only fields on POST; reuse the PUT
-    // whitelist (name/nodes/connections/settings[/staticData]).
+    // The public API rejects unknown/read-only fields on POST; start from the
+    // PUT whitelist (name/nodes/connections/settings[/staticData]).
     const { body, strippedFields } = stripForPut(local);
+    // ...but the public-API v1 *create* schema also accepts description,
+    // nodeGroups, and pinData as writable — stripForPut drops them because it
+    // targets UPDATE. Re-add any the local file has so pulled/exported
+    // workflows keep their description, canvas groups, and pinned data.
+    // (projectId is NOT in the public v1 schema and would be rejected.)
+    const createWritable = ["description", "nodeGroups", "pinData"] as const;
+    const reAdded: string[] = [];
+    for (const field of createWritable) {
+      if (
+        Object.prototype.hasOwnProperty.call(local, field) &&
+        local[field] !== undefined
+      ) {
+        (body as Record<string, unknown>)[field] = local[field];
+        reAdded.push(field);
+      }
+    }
+    const effectiveStripped = strippedFields.filter(
+      (field) => !reAdded.includes(field),
+    );
 
     const basePayload = {
       instance: instance.host,
       file,
       workflow: { name: local.name },
       nodeCount: (local.nodes ?? []).length,
-      strippedFields,
+      strippedFields: effectiveStripped,
       validation: validationSummary(validation),
     };
 

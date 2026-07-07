@@ -130,6 +130,41 @@ test("runCreate --yes creates and strips read-only fields", async () => {
   expect(payload.workflow.url).toBe("https://h.co/workflow/NEW1");
 });
 
+test("runCreate carries create-writable fields the public API v1 accepts", async () => {
+  // A pulled/exported workflow can contain these; the public-API v1 create
+  // schema marks them writable (not readOnly), so they must reach the POST body.
+  const file = writeLocal(
+    workflow({
+      description: "My tool",
+      nodeGroups: [{ nodes: ["A"], label: "Group" }],
+      pinData: { A: [{ json: { id: 1 } }] },
+      staticData: { lastId: 5 },
+      // read-only/server-managed — must still be stripped
+      tags: [{ id: "t1" }],
+      versionId: "v9",
+      active: true,
+    } as Partial<WorkflowDefinition>),
+  );
+  const { client, calls } = clientStub();
+  const { result, stdout } = await captureStdout(() =>
+    runCreate(file, { yes: true }, () => client as never),
+  );
+  expect(result).toBe(0);
+  const body = calls[0] as Record<string, unknown>;
+  expect(body.description).toBe("My tool");
+  expect(body.nodeGroups).toEqual([{ nodes: ["A"], label: "Group" }]);
+  expect(body.pinData).toEqual({ A: [{ json: { id: 1 } }] });
+  expect(body.staticData).toEqual({ lastId: 5 });
+  // read-only fields never reach the POST body
+  expect("tags" in body).toBe(false);
+  expect("active" in body).toBe(false);
+  expect("versionId" in body).toBe(false);
+  // and they are not double-reported as "stripped" once re-added
+  const payload = JSON.parse(stdout);
+  expect(payload.strippedFields).not.toContain("pinData");
+  expect(payload.strippedFields).toContain("tags");
+});
+
 test("runCreate --name overrides the file name", async () => {
   const file = writeLocal(workflow());
   const { client, calls } = clientStub();
