@@ -75,6 +75,7 @@ password is stored in the config file (mode 0600); to avoid that, pass
 | `edit <workflow> <op>` | Edit a workflow (`set-code`, `set-prompt`, `replace-node`) — local file, or live with `--remote`; content options accept `-` for stdin. |
 | `validate <workflow>` | Check node references, diff vs live, and stale `$json`. |
 | `push <workflow>` | Push local changes back: merge changed nodes (default) or `--whole`. |
+| `create <file>` | Create a NEW workflow from a local JSON file (created inactive; `--yes`-gated). |
 | `run <workflow>` | Test-run with sample data (webhook, or internal `/rest` for sub-workflows). |
 
 ## Examples
@@ -115,6 +116,10 @@ n8n-helper validate "Apply Agreement"
 n8n-helper push "Apply Agreement"                              # diff-only preview
 n8n-helper push "Apply Agreement" --node "AI Agent" --yes      # push just one node
 n8n-helper push "Apply Agreement" --whole --yes               # replace whole workflow
+
+# Create a brand-new workflow from a local file (preview first, then --yes)
+n8n-helper create workflows/tools/my-new-tool.json             # preview no-op
+n8n-helper create workflows/tools/my-new-tool.json --yes       # create (inactive)
 
 # Test-run end-to-end with sample data
 n8n-helper run "Apply Agreement" --data sample.json --poll
