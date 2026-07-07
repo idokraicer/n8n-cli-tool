@@ -58,6 +58,7 @@ Most commands accept either a full n8n URL or a bare id. **Prefer a full URL whe
 | `edit <workflow> <op>` | Edit a workflow (`set-code`/`set-prompt`/`replace-node`); local file, or live with `--remote`. Content options take `-` for stdin. |
 | `validate <workflow>` | Check node references, diff vs live, and stale `$json`. |
 | `push <workflow>` | Push local changes back: merge changed nodes (default) or `--whole`. |
+| `create <file>` | Create a NEW workflow on the instance from a local JSON file (created inactive; `--yes`-gated). |
 | `run <workflow>` | Test-run with sample data (webhook, or internal `/rest` for sub-workflows). |
 
 Run `n8n-helper <command> --help` for the full flag list — only the high-value flags are below.
@@ -173,6 +174,29 @@ n8n-helper push "Apply Agreement" --whole --yes   # replace whole workflow
 n8n-helper run "Apply Agreement" --data sample.json          # sub-workflow via internal /rest
 n8n-helper run "Sales AI Agent"  --data-inline '{"message":"hi"}' --poll
 ```
+
+### Create a brand-new workflow: `create <file>`
+
+`pull`/`edit`/`validate`/`push` all operate on workflows that **already exist**.
+To put a *new* workflow onto the instance from a local JSON file, use `create` —
+same write discipline as `push`:
+
+```bash
+n8n-helper create workflows/tools/my-new-tool.json            # preview only (no write)
+n8n-helper create workflows/tools/my-new-tool.json --yes      # create it (inactive)
+n8n-helper create tool.json --name "Discount Tool" --yes      # override the file's name
+n8n-helper create tool.json --yes --force                     # create despite validation errors
+```
+
+- **Preview by default** — without `--yes` it validates, reports what would be
+  sent, and writes nothing. `--force` creates despite hard validation errors.
+- **Created inactive** (public-API behavior). Activate it in the n8n UI if it
+  needs a live trigger; `executeWorkflowTrigger` tools run when called regardless.
+- Sends only the fields the public API's *create* schema accepts —
+  `name`/`nodes`/`connections`/`settings` plus `staticData`, `description`,
+  `nodeGroups`, and `pinData` when present — and reports the read-only fields it
+  stripped (`id`, `active`, `tags`, `versionId`, …) as `strippedFields`. The new
+  `id` + `url` come back on success.
 
 Field targets `edit` writes: `set-code` → a Code node's `parameters.jsCode`
 (`--lang python` → `pythonCode`, and also flips `parameters.language` so n8n runs
