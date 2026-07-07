@@ -133,21 +133,25 @@ export function mergeNodes(
 
   const targets = nodeNames ?? computeChangedNodes(local, live);
   const updated: string[] = [];
-  const addedNodes: string[] = [];
 
   for (const target of targets) {
     const localNode = localNodes.get(target);
     if (!localNode) continue;
 
     const liveIndex = (merged.nodes ?? []).findIndex((node) => node.name === target);
-    if (liveIndex === -1 || !liveNodes.has(target)) {
-      addedNodes.push(target);
-      continue;
-    }
+    // A locally-new node can't be merged in place; it's reported via
+    // addedNodes below (computed globally, not just over the target subset).
+    if (liveIndex === -1 || !liveNodes.has(target)) continue;
 
     merged.nodes[liveIndex] = structuredClone(localNode);
     updated.push(target);
   }
+
+  // Added/removed are reported over the full node sets — independent of the
+  // --node subset — so the user always sees what a --whole push would carry.
+  const addedNodes = (local.nodes ?? [])
+    .filter((node) => !liveNodes.has(node.name))
+    .map((node) => node.name);
 
   const removedNodes = (live.nodes ?? [])
     .filter((node) => !localNodes.has(node.name))

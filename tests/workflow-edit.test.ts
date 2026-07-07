@@ -301,3 +301,28 @@ test("setPrompt rejects an unsafe --user-path/--system-path", () => {
     setPrompt(workflow(), "Agent", { system: "x", systemPath: "parameters.constructor.y" }),
   ).toThrow(expect.objectContaining({ code: "bad-arguments" }));
 });
+
+test("setByPath refuses to overwrite a non-object intermediate value", () => {
+  // parameters.text is a string; writing under it must not silently clobber it.
+  const obj: Record<string, unknown> = { parameters: { text: "keep me" } };
+  expect(() => setByPath(obj, "parameters.text.foo", "x")).toThrow(
+    expect.objectContaining({ code: "bad-arguments" }),
+  );
+  expect((obj.parameters as any).text).toBe("keep me");
+});
+
+test("setPrompt does not set promptType on a non-Agent node", () => {
+  const def = workflow();
+  // "Blank Code" is a Code node; promptType/text are Agent-node-specific.
+  setPrompt(def, "Blank Code", { user: "hello" });
+  expect((def.nodes[2].parameters as any).promptType).toBeUndefined();
+});
+
+test("replaceNode rejects a replacement that is missing a type", () => {
+  const def = workflow();
+  expect(() =>
+    replaceNode(def, "Code", { parameters: { jsCode: "return 2;" } } as any),
+  ).toThrow(expect.objectContaining({ code: "bad-arguments" }));
+  // the original node must be left untouched
+  expect(def.nodes[0].type).toBe("n8n-nodes-base.code");
+});

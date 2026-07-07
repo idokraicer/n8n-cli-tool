@@ -47,13 +47,24 @@ export async function resolveWorkflowRef(
   }
 
   const catalogSearch = opts.catalogSearch ?? searchCatalog;
-  const catalog = await catalogSearch(opts.host, {
-    query: ref,
-    field: "name",
-    limit: 1000,
-    offset: 0,
-  });
-  const catalogMatches = catalog.rows
+  // field:"name" is substring-based, so exact-name duplicates can span more
+  // than one page — walk every page or a collision past the first window is
+  // silently reported as a single match.
+  const CATALOG_PAGE = 1000;
+  const catalogRows: WorkflowRow[] = [];
+  let offset = 0;
+  for (;;) {
+    const page = await catalogSearch(opts.host, {
+      query: ref,
+      field: "name",
+      limit: CATALOG_PAGE,
+      offset,
+    });
+    catalogRows.push(...page.rows);
+    offset += CATALOG_PAGE;
+    if (page.rows.length === 0 || offset >= page.totalMatches) break;
+  }
+  const catalogMatches = catalogRows
     .filter((row) => row.name === ref)
     .map((row) => ({ id: row.id, name: row.name, url: row.url }));
 

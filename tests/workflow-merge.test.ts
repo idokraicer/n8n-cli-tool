@@ -113,6 +113,21 @@ test("mergeNodes records added removed and connection changes without applying t
   expect(plan.merged.connections).toEqual(live.connections);
 });
 
+test("mergeNodes reports locally-added nodes even when --node selects a subset that excludes them", () => {
+  const live = workflow([node("a", "A")]);
+  const local = workflow([
+    node("a", "A", { value: "changed" }),
+    node("new", "Added"),
+  ]);
+
+  // Push only "A"; "Added" is new locally but outside the target subset.
+  const plan = mergeNodes(live, local, ["A"]);
+
+  expect(plan.updated).toEqual(["A"]);
+  // "Added" must still surface so the user can escalate to --whole.
+  expect(plan.excluded.addedNodes).toEqual(["Added"]);
+});
+
 test("stripForPut keeps only writable fields, defaults settings, and reports stripped read-only fields", () => {
   const def: WorkflowDefinition = {
     id: "WF",
