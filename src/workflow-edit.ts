@@ -73,8 +73,13 @@ export function setByPath(
   let current = obj;
 
   for (const part of parts.slice(0, -1)) {
-    if (!isRecord(current[part])) {
+    if (current[part] === undefined) {
       current[part] = {};
+    } else if (!isRecord(current[part])) {
+      throw new CliError(
+        "bad-arguments",
+        `Cannot set '${path}': segment '${part}' holds a non-object value.`,
+      );
     }
     current = current[part] as Record<string, unknown>;
   }
@@ -171,8 +176,9 @@ export function setPrompt(
       ),
     );
     // n8n ignores parameters.text unless promptType is "define"; setting the
-    // default user field without this leaves the prompt silently inert.
-    if (!opts.userPath) {
+    // default user field without this leaves the prompt silently inert. This
+    // is Agent-node semantics — don't force the field onto other node types.
+    if (!opts.userPath && node.type === AGENT_NODE_TYPE) {
       setByPath(node, "parameters.promptType", "define");
     }
   }
@@ -199,6 +205,12 @@ export function replaceNode(
   }
 
   const existing = def.nodes[index];
+  if (typeof replacement.type !== "string" || replacement.type.length === 0) {
+    throw new CliError(
+      "bad-arguments",
+      `Replacement node for '${nodeName}' is missing a 'type' field.`,
+    );
+  }
   if (
     typeof replacement.name === "string" &&
     replacement.name !== nodeName

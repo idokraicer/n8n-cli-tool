@@ -294,6 +294,30 @@ test("runPush reports excluded added removed and connection changes", async () =
   });
 });
 
+test("runPush surfaces a locally-added node in nodesExcluded even when --node targets a subset", async () => {
+  const live = workflow([node("a", "A", { value: "live-a" })]);
+  const local = workflow([
+    node("a", "A", { value: "local-a" }),
+    node("added", "Added"),
+  ]);
+  writeLocal(local);
+  const { client } = clientFor(live);
+
+  const { result: code, stdout } = await captureStdout(() =>
+    runPush(
+      url(),
+      { dir: workflowsDir, node: ["A"], yes: true, json: true, quiet: true },
+      (_instance: ResolvedInstance) => client as any,
+    ),
+  );
+
+  expect(code).toBe(0);
+  expect(JSON.parse(stdout)).toMatchObject({
+    nodesUpdated: ["A"],
+    nodesExcluded: { addedNodes: ["Added"] },
+  });
+});
+
 test("runPush preview (no --yes) includes an agentic hint to apply with --yes", async () => {
   const live = workflow([node("a", "A", { value: "live" })]);
   writeLocal(workflow([node("a", "A", { value: "local" })]));

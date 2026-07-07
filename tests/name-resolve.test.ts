@@ -121,6 +121,28 @@ test("throws bad-arguments when exact catalog matches collide", async () => {
   });
 });
 
+test("paginates catalog matches so an exact duplicate beyond the first page still collides", async () => {
+  // Substring field="name" can produce more matches than one page holds; an
+  // exact-name duplicate sitting past the first window must not be dropped.
+  const calls: number[] = [];
+  const catalogSearch: CatalogSearch = async (_host, q) => {
+    calls.push(q.offset);
+    if (q.offset === 0) {
+      return { rows: [row("WF_A", "Dup")], totalMatches: 1001 };
+    }
+    return { rows: [row("WF_B", "Dup")], totalMatches: 1001 };
+  };
+
+  await expect(
+    resolveWorkflowRef("Dup", {
+      host: "n8n.example.com",
+      client: fakeClient(),
+      catalogSearch,
+    }),
+  ).rejects.toMatchObject({ code: "bad-arguments" });
+  expect(calls.length).toBeGreaterThan(1);
+});
+
 test("treats a ref with no name matches as a bare id", async () => {
   const catalogSearch: CatalogSearch = async () => ({ rows: [], totalMatches: 0 });
   const client = fakeClient([{ data: [{ id: "WF_OTHER", name: "Other" }], nextCursor: null }]);

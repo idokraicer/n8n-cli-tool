@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import { N8nClient } from "../client";
 import { resolveInstance } from "../config";
 import { emitError, emitJson, resolveOutputMode, toCliError } from "../format";
@@ -26,6 +27,10 @@ type ClientFactory = (instance: ResolvedInstance) => N8nClient;
 
 interface WorkflowDiff {
   different: boolean;
+  // Set when the workflows differ but every node map is identical — i.e. the
+  // change is in connections/settings/tags/active, which the node lists can't
+  // show. Without it the user sees "different" with empty node arrays.
+  otherChanges?: boolean;
   nodes: {
     added: string[];
     removed: string[];
@@ -48,7 +53,9 @@ function diffWorkflows(
   local: WorkflowDefinition,
   fetched: WorkflowDefinition,
 ): WorkflowDiff | undefined {
-  if (JSON.stringify(local) === JSON.stringify(fetched)) return undefined;
+  // Order-insensitive: a key-order-only difference is not a real change and
+  // must not spuriously gate the overwrite behind --yes.
+  if (isDeepStrictEqual(local, fetched)) return undefined;
 
   const localNodes = nodesByName(local.nodes ?? []);
   const fetchedNodes = nodesByName(fetched.nodes ?? []);
@@ -62,7 +69,7 @@ function diffWorkflows(
       added.push(name);
       continue;
     }
-    if (JSON.stringify(localNode) !== JSON.stringify(fetchedNode)) {
+    if (!isDeepStrictEqual(localNode, fetchedNode)) {
       changed.push(name);
     }
   }
@@ -71,8 +78,12 @@ function diffWorkflows(
     if (!fetchedNodes.has(name)) removed.push(name);
   }
 
+  const otherChanges =
+    added.length === 0 && removed.length === 0 && changed.length === 0;
+
   return {
     different: true,
+    ...(otherChanges ? { otherChanges: true } : {}),
     nodes: {
       added: sorted(added),
       removed: sorted(removed),

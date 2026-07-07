@@ -216,6 +216,62 @@ test("runPull emits a diff and does not overwrite different local content in non
   expect(readFileSync(file, "utf8")).toBe(before);
 });
 
+test("runPull treats key-order-only differences as identical and does not gate", async () => {
+  setStdoutTty(false);
+  const fetched = workflow({
+    nodes: [
+      { id: "set", name: "Set Data", type: "n8n-nodes-base.set", parameters: { a: 1, b: 2 } },
+    ],
+  });
+  // Same content; only object key insertion order differs from the live copy.
+  const local = workflow({
+    nodes: [
+      { id: "set", name: "Set Data", type: "n8n-nodes-base.set", parameters: { b: 2, a: 1 } },
+    ],
+  });
+  const file = join(workflowsDir, "apply-agreement.json");
+  writeFileSync(file, `${JSON.stringify(local, null, 2)}\n`);
+  const getOutput = captureStdout();
+
+  const code = await runPull(
+    fetched.name,
+    { dir: workflowsDir, json: true, quiet: true },
+    () => clientFor(fetched) as any,
+  );
+
+  const payload = JSON.parse(getOutput());
+  expect(code).toBe(0);
+  expect(payload.wrote).toBe(true);
+  expect(payload.diff).toBeUndefined();
+});
+
+test("runPull reports otherChanges when only non-node fields differ", async () => {
+  setStdoutTty(false);
+  const nodes = [
+    { id: "set", name: "Set Data", type: "n8n-nodes-base.set", parameters: { value: "same" } },
+  ];
+  const fetched = workflow({ active: true, nodes });
+  const local = workflow({ active: false, nodes });
+  const file = join(workflowsDir, "apply-agreement.json");
+  writeFileSync(file, `${JSON.stringify(local, null, 2)}\n`);
+  const getOutput = captureStdout();
+
+  const code = await runPull(
+    fetched.name,
+    { dir: workflowsDir, json: true, quiet: true },
+    () => clientFor(fetched) as any,
+  );
+
+  const payload = JSON.parse(getOutput());
+  expect(code).toBe(0);
+  expect(payload.wrote).toBe(false);
+  expect(payload.diff).toMatchObject({
+    different: true,
+    otherChanges: true,
+    nodes: { added: [], removed: [], changed: [] },
+  });
+});
+
 test("runPull overwrites different local content when yes is true", async () => {
   setStdoutTty(false);
   const fetched = workflow();
