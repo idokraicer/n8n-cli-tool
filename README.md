@@ -91,6 +91,10 @@ n8n-helper search "500857721" "https://n8n.example.com/workflow/WF/executions/35
 # Search a whole workflow's recent executions
 n8n-helper search "500857721" "https://n8n.example.com/workflow/WF"
 
+# List or search executions in a precise time window (requires session login)
+n8n-helper executions WF --from "2026-07-14 09:00" --to "2026-07-14 10:30"
+n8n-helper search "message text" WF --since 2h
+
 # Inspect an execution, then drill into a node
 n8n-helper get 351694
 n8n-helper get 351694 --node "HTTP Request" --path json.order.id
@@ -124,6 +128,25 @@ n8n-helper create workflows/tools/my-new-tool.json --yes       # create (inactiv
 # Test-run end-to-end with sample data
 n8n-helper run "Apply Agreement" --data sample.json --poll
 ```
+
+### Execution time filters
+
+`executions` and workflow-wide `search` accept `--from`, `--to`, and
+`--since`. Relative `--since` values support `m`, `h`, `d`, and `w`, such as
+`30m`, `2h`, or `3d`. Date/time values without an explicit timezone use the
+machine's local timezone; JSON output includes the normalized UTC
+`timeWindow`.
+
+n8n's public API does not support execution start-time filters, so these flags
+use the authenticated internal execution-list endpoint. Save a browser session
+first:
+
+```bash
+n8n-helper login --url https://n8n.example.com --email you@example.com
+```
+
+Ordinary execution listing without time filters continues to use the API key
+and does not require session authentication.
 
 ## Output and exit codes
 

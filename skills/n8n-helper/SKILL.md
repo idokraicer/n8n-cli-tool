@@ -77,15 +77,29 @@ Returns `workflows[]` with `id`, `name`, `active`, `tags`, `webhooks[]`, `url`.
 ```bash
 n8n-helper executions <WF> --status error --limit 20
 n8n-helper executions <WF> --all              # auto-paginate up to 1000
+n8n-helper executions <WF> --from "2026-07-14 09:00" --to "2026-07-14 10:30"
+n8n-helper executions <WF> --since 2h
 ```
+
+Time filters use n8n's internal execution-list endpoint and require a saved
+browser session. If the CLI returns `no-session`, run:
+
+```bash
+n8n-helper login --url https://n8n.example.com --email you@example.com
+```
+
+The command prompts for the password. Do not try to solve `no-session` by
+replacing the API key; the ordinary public executions endpoint does not accept
+start-time filters.
 
 **Find where a value appears** (this is the headline feature):
 ```bash
 n8n-helper search "500857721" <EXEC>          # one execution
 n8n-helper search "500857721" <WF>            # across the workflow's recent executions
+n8n-helper search "message text" <WF> --since 2h  # only executions in the time window
 n8n-helper search "500857721" <EXEC> --context --no-truncate   # show each match's parent object, full values
 ```
-Useful flags: `--node <name>`, `--exact`, `--regex`, `--case-sensitive`, `--status`, `--limit` (workflow target). Each match reports `node`, `path`, `value`, and `url`.
+Useful flags: `--node <name>`, `--exact`, `--regex`, `--case-sensitive`, `--status`, `--limit`, `--from`, `--to`, and `--since` (time filters require a workflow target). Each match reports `node`, `path`, `value`, and `url`.
 
 **Inspect an execution / drill in:**
 ```bash
