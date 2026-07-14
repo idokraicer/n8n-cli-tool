@@ -108,6 +108,27 @@ test("SessionManager.getCookie returns null without cookie or credentials", asyn
   const manager = new SessionManager("h.co", "https://h.co");
   expect(await manager.getCookie()).toBeNull();
   expect(manager.hasCredentials()).toBe(false);
+  expect(manager.hasSession()).toBe(false);
+});
+
+test("SessionManager.hasSession detects a saved cookie or login credentials", () => {
+  upsertInstance(
+    "cookie.co",
+    {
+      baseUrl: "https://cookie.co",
+      apiKey: "K",
+      sessionCookie: "n8n-auth=saved",
+      browserId: "bid",
+    },
+    true,
+  );
+  upsertInstance(
+    "login.co",
+    { baseUrl: "https://login.co", apiKey: "K", email: "a@b.co", password: "pw" },
+    false,
+  );
+  expect(new SessionManager("cookie.co", "https://cookie.co").hasSession()).toBe(true);
+  expect(new SessionManager("login.co", "https://login.co").hasSession()).toBe(true);
 });
 
 test("SessionManager.refreshCookie replaces a stale cookie via re-login", async () => {

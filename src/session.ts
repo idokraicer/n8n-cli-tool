@@ -98,6 +98,14 @@ export class SessionManager {
     return Boolean(stored?.email && stored.password);
   }
 
+  hasSession(): boolean {
+    const stored = this.stored();
+    return Boolean(
+      (stored?.sessionCookie && stored.browserId) ||
+        (stored?.email && stored.password),
+    );
+  }
+
   /** The persisted browser-id bound to the session, if a login has happened. */
   getBrowserId(): string | undefined {
     return this.stored()?.browserId;

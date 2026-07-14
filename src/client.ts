@@ -16,6 +16,21 @@ interface ListResponse {
   nextCursor: string | null;
 }
 
+export interface InternalExecutionListParams {
+  workflowId: string;
+  status?: string;
+  startedAfter?: string;
+  startedBefore?: string;
+  limit: number;
+  lastId?: string;
+}
+
+export interface InternalExecutionListResponse {
+  results: any[];
+  count: number;
+  estimated: boolean;
+}
+
 interface RequestOptions {
   query?: Record<string, string | undefined>;
   method?: string;
@@ -170,6 +185,71 @@ export class N8nClient {
         cursor: params.cursor,
       },
     });
+  }
+
+  async listExecutionsInternal(
+    params: InternalExecutionListParams,
+    auth: { cookie: string; browserId: string },
+  ): Promise<InternalExecutionListResponse> {
+    const url = new URL(`${this.baseUrl}/rest/executions`);
+    url.searchParams.set(
+      "filter",
+      JSON.stringify({
+        workflowId: params.workflowId,
+        ...(params.status ? { status: [params.status] } : {}),
+        ...(params.startedAfter
+          ? { startedAfter: params.startedAfter }
+          : {}),
+        ...(params.startedBefore
+          ? { startedBefore: params.startedBefore }
+          : {}),
+      }),
+    );
+    url.searchParams.set("limit", String(params.limit));
+    if (params.lastId) url.searchParams.set("lastId", params.lastId);
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    let response: Response;
+    try {
+      response = await this.fetchImpl(url.toString(), {
+        headers: {
+          Accept: "application/json",
+          Cookie: auth.cookie,
+          "browser-id": auth.browserId,
+        },
+        signal: controller.signal,
+      });
+    } catch (err) {
+      clearTimeout(timer);
+      throw new CliError(
+        "network-error",
+        `Request to ${url.pathname} failed: ${(err as Error).message}`,
+      );
+    }
+    clearTimeout(timer);
+
+    const body = await parseResponseBody(response);
+    if (!response.ok) {
+      throw new CliError(
+        statusToCode(response.status),
+        `n8n execution list failed: HTTP ${response.status}`,
+        body ?? undefined,
+      );
+    }
+    const data = (body as any)?.data;
+    if (!data || !Array.isArray(data.results)) {
+      throw new CliError(
+        "n8n-error",
+        "n8n returned an invalid response from /rest/executions.",
+        body ?? undefined,
+      );
+    }
+    return {
+      results: data.results,
+      count: Number(data.count ?? data.results.length),
+      estimated: Boolean(data.estimated),
+    };
   }
 
   async retryExecution(

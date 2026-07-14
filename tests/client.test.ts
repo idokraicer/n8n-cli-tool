@@ -41,6 +41,62 @@ test("listWorkflows returns data and nextCursor", async () => {
   });
 });
 
+test("listExecutionsInternal sends time filters with cookie and browser id", async () => {
+  let seenUrl = "";
+  let seenHeaders: Record<string, string> = {};
+  const client = clientWith(async (url, init) => {
+    seenUrl = String(url);
+    seenHeaders = init?.headers as Record<string, string>;
+    return jsonResponse({
+      data: {
+        results: [{ id: "12", startedAt: "2026-07-14T06:30:00.000Z" }],
+        count: 1,
+        estimated: false,
+      },
+    });
+  });
+
+  const result = await client.listExecutionsInternal(
+    {
+      workflowId: "WF",
+      status: "error",
+      startedAfter: "2026-07-14T06:00:00.000Z",
+      startedBefore: "2026-07-14T07:00:00.000Z",
+      limit: 25,
+      lastId: "20",
+    },
+    { cookie: "n8n-auth=secret", browserId: "bid-123" },
+  );
+
+  const url = new URL(seenUrl);
+  expect(`${url.origin}${url.pathname}`).toBe("https://h.co/rest/executions");
+  expect(url.searchParams.get("limit")).toBe("25");
+  expect(url.searchParams.get("lastId")).toBe("20");
+  expect(JSON.parse(url.searchParams.get("filter")!)).toEqual({
+    workflowId: "WF",
+    status: ["error"],
+    startedAfter: "2026-07-14T06:00:00.000Z",
+    startedBefore: "2026-07-14T07:00:00.000Z",
+  });
+  expect(seenHeaders.Cookie).toBe("n8n-auth=secret");
+  expect(seenHeaders["browser-id"]).toBe("bid-123");
+  expect(result).toEqual({
+    results: [{ id: "12", startedAt: "2026-07-14T06:30:00.000Z" }],
+    count: 1,
+    estimated: false,
+  });
+});
+
+test("listExecutionsInternal maps an expired session to unauthorized", async () => {
+  const client = clientWith(async () => jsonResponse({ message: "Unauthorized" }, 401));
+  await expect(
+    client.listExecutionsInternal(
+      { workflowId: "WF", limit: 20 },
+      { cookie: "n8n-auth=expired", browserId: "bid" },
+    ),
+  ).rejects.toMatchObject({ code: "unauthorized" });
+});
+
 test("a 401 maps to a CliError with code unauthorized", async () => {
   const client = clientWith(async () => jsonResponse({}, 401));
   try {
