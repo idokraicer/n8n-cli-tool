@@ -69,6 +69,9 @@ test("parseTimeWindow rejects invalid values", () => {
   expect(() => parseTimeWindow({ from: "not-a-date" }, NOW)).toThrow(
     "--from must be",
   );
+  expect(() =>
+    parseTimeWindow({ since: "999999999999999999999999h" }, NOW),
+  ).toThrow("--since must be");
 });
 
 test("parseTimeWindow rejects a reversed range", () => {

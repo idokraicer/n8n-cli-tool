@@ -147,3 +147,52 @@ test("collectTimeFilteredExecutions adds setup guidance when refresh fails", asy
     expect(err.hint).toContain("n8n-helper login");
   }
 });
+
+test("collectTimeFilteredExecutions adds setup guidance when initial login fails", async () => {
+  const client = { listExecutionsInternal: async () => ({}) };
+  const session = fakeSession({
+    hasCredentials: () => true,
+    getCookie: async () => {
+      throw new CliError("unauthorized", "bad login");
+    },
+  });
+  try {
+    await collectTimeFilteredExecutions({
+      client: client as any,
+      session,
+      instance,
+      workflowId: "WF",
+      window: { from: "2026-07-14T06:00:00.000Z" },
+      maxResults: 20,
+    });
+    throw new Error("should have thrown");
+  } catch (error) {
+    const err = error as CliError;
+    expect(err.code).toBe("unauthorized");
+    expect(err.message).toBe("bad login");
+    expect(err.hint).toContain("n8n-helper login");
+  }
+});
+
+test("collectTimeFilteredExecutions does not add login guidance to server errors", async () => {
+  const client = {
+    listExecutionsInternal: async () => {
+      throw new CliError("n8n-error", "HTTP 500");
+    },
+  };
+  try {
+    await collectTimeFilteredExecutions({
+      client: client as any,
+      session: fakeSession(),
+      instance,
+      workflowId: "WF",
+      window: { from: "2026-07-14T06:00:00.000Z" },
+      maxResults: 20,
+    });
+    throw new Error("should have thrown");
+  } catch (error) {
+    const err = error as CliError;
+    expect(err.code).toBe("n8n-error");
+    expect(err.hint).toBeUndefined();
+  }
+});

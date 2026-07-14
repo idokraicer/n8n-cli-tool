@@ -38,6 +38,20 @@ function parseDateOption(name: "from" | "to" | "since", raw: string): number {
   return parsed;
 }
 
+function toIso(name: "from" | "to" | "since", value: number): string {
+  if (!Number.isFinite(value) || Math.abs(value) > 8.64e15) {
+    const expected =
+      name === "since"
+        ? "a duration such as 2h or a valid date/time"
+        : "a valid date/time";
+    throw new CliError(
+      "bad-arguments",
+      `--${name} must be ${expected}.`,
+    );
+  }
+  return new Date(value).toISOString();
+}
+
 export function parseTimeWindow(
   opts: TimeWindowOpts,
   now: Date = new Date(),
@@ -56,9 +70,14 @@ export function parseTimeWindow(
     fromMs = parseDateOption("from", opts.from);
   } else if (opts.since !== undefined) {
     const duration = DURATION_RE.exec(opts.since);
-    fromMs = duration
-      ? nowMs - Number(duration[1]) * UNIT_MS[duration[2].toLowerCase()]
-      : parseDateOption("since", opts.since);
+    if (duration) {
+      const durationMs =
+        Number(duration[1]) * UNIT_MS[duration[2].toLowerCase()];
+      fromMs = nowMs - durationMs;
+      toIso("since", fromMs);
+    } else {
+      fromMs = parseDateOption("since", opts.since);
+    }
   }
 
   const toMs =
@@ -76,7 +95,7 @@ export function parseTimeWindow(
   }
 
   return {
-    ...(fromMs === undefined ? {} : { from: new Date(fromMs).toISOString() }),
-    ...(toMs === undefined ? {} : { to: new Date(toMs).toISOString() }),
+    ...(fromMs === undefined ? {} : { from: toIso("from", fromMs) }),
+    ...(toMs === undefined ? {} : { to: toIso("to", toMs) }),
   };
 }

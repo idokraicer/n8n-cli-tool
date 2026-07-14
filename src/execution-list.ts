@@ -65,7 +65,12 @@ export async function collectTimeFilteredExecutions(
   const { session, instance } = input;
   if (!session.hasSession()) throw noSessionError(instance.baseUrl);
 
-  let cookie = await session.getCookie();
+  let cookie: string | null;
+  try {
+    cookie = await session.getCookie();
+  } catch (error) {
+    throw withSessionHint(error, instance.baseUrl);
+  }
   let browserId = session.getBrowserId();
   if ((!cookie || !browserId) && session.hasCredentials()) {
     try {
@@ -120,7 +125,10 @@ export async function collectTimeFilteredExecutions(
           throw withSessionHint(refreshError, instance.baseUrl);
         }
       }
-      throw withSessionHint(error, instance.baseUrl);
+      if (error instanceof CliError && error.code === "unauthorized") {
+        throw withSessionHint(error, instance.baseUrl);
+      }
+      throw error;
     }
 
     total = page.count;

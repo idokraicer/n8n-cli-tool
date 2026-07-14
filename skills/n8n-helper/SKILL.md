@@ -30,7 +30,7 @@ Two separate credentials, depending on the command:
   n8n-helper login --url https://n8n.example.com --key <api-key>
   ```
   (Create the key in n8n under **Settings → n8n API**.)
-- **Browser session** (only `retry`): the `/rest` API needs a login session, not an API key. Enable with `n8n-helper login --url https://n8n.example.com --email you@example.com` (prompts for password; stored mode 0600). Or pass `--cookie` / set `N8N_SESSION_COOKIE` per invocation.
+- **Browser session** (`retry`, internal workflow runs, and execution time filters): the `/rest` API needs a login session, not an API key. Enable with `n8n-helper login --url https://n8n.example.com --email you@example.com` (prompts for password; stored mode 0600). `retry` also accepts `--cookie` / `N8N_SESSION_COOKIE` per invocation.
 
 If a command errors about missing credentials, ask the user for their instance URL + API key and run `login` (or set the env vars).
 
