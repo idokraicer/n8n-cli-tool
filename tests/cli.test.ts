@@ -36,3 +36,13 @@ test("a missing-credentials error exits 2 with a JSON envelope", async () => {
   const parsed = JSON.parse(stdout);
   expect(parsed.error.code).toBe("no-credentials");
 });
+
+test("execution-listing commands expose time-window options", async () => {
+  for (const command of ["executions", "search"]) {
+    const { stdout, exitCode } = await run([command, "--help"]);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("--from <date-time>");
+    expect(stdout).toContain("--to <date-time>");
+    expect(stdout).toContain("--since <duration-or-date-time>");
+  }
+});

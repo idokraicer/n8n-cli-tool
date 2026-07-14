@@ -4,8 +4,11 @@ import { N8nClient } from "../client";
 import { parseN8nUrl, buildWorkflowUrl, buildExecutionUrl } from "../url";
 import { emitJson, progress } from "../format";
 import { requireIntOption } from "../options";
+import { SessionManager } from "../session";
+import { collectTimeFilteredExecutions, type ExecutionListSession } from "../execution-list";
+import { parseTimeWindow, type TimeWindowOpts } from "../time-window";
 
-export interface ExecutionsOpts {
+export interface ExecutionsOpts extends TimeWindowOpts {
   status?: "success" | "error" | "waiting";
   limit?: string;
   cursor?: string;
@@ -17,9 +20,12 @@ export interface ExecutionsOpts {
 }
 
 type ClientFactory = (instance: ResolvedInstance) => N8nClient;
+type SessionFactory = (instance: ResolvedInstance) => ExecutionListSession;
 
 const defaultClientFactory: ClientFactory = (instance) =>
   new N8nClient({ baseUrl: instance.baseUrl, apiKey: instance.apiKey });
+const defaultSessionFactory: SessionFactory = (instance) =>
+  new SessionManager(instance.host, instance.baseUrl);
 
 const ALL_CAP = 1000;
 
@@ -27,7 +33,15 @@ export async function runExecutions(
   target: string,
   opts: ExecutionsOpts,
   clientFactory: ClientFactory = defaultClientFactory,
+  sessionFactory: SessionFactory = defaultSessionFactory,
 ): Promise<number> {
+  const timeWindow = parseTimeWindow(opts);
+  if (timeWindow && opts.cursor) {
+    throw new CliError(
+      "bad-arguments",
+      "--cursor cannot be combined with execution time filters; use --all to retrieve the full window.",
+    );
+  }
   const parsed = parseN8nUrl(target);
   if (parsed && parsed.kind === "execution") {
     throw new CliError(
@@ -46,20 +60,35 @@ export async function runExecutions(
 
   progress(`Listing executions for workflow ${workflowId}...`, quiet);
 
-  const rows: any[] = [];
-  let cursor = opts.cursor;
+  let rows: any[];
   let nextCursor: string | null = null;
-  do {
-    const page = await client.listExecutions({
+  if (timeWindow) {
+    const result = await collectTimeFilteredExecutions({
+      client,
+      session: sessionFactory(instance),
+      instance,
       workflowId,
       status: opts.status,
-      limit,
-      cursor,
+      window: timeWindow,
+      maxResults: opts.all ? ALL_CAP : limit,
+      pageSize: limit || undefined,
     });
-    rows.push(...page.data);
-    nextCursor = page.nextCursor;
-    cursor = page.nextCursor ?? undefined;
-  } while (opts.all && cursor && rows.length < ALL_CAP);
+    rows = result.data;
+  } else {
+    rows = [];
+    let cursor = opts.cursor;
+    do {
+      const page = await client.listExecutions({
+        workflowId,
+        status: opts.status,
+        limit,
+        cursor,
+      });
+      rows.push(...page.data);
+      nextCursor = page.nextCursor;
+      cursor = page.nextCursor ?? undefined;
+    } while (opts.all && cursor && rows.length < ALL_CAP);
+  }
 
   emitJson({
     instance: instance.host,
@@ -76,6 +105,7 @@ export async function runExecutions(
       stoppedAt: e.stoppedAt ?? null,
       url: buildExecutionUrl(instance.baseUrl, workflowId, String(e.id)),
     })),
+    ...(timeWindow ? { timeWindow } : {}),
     nextCursor,
     summary: { count: rows.length },
   });

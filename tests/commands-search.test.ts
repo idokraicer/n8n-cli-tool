@@ -88,3 +88,71 @@ test("runSearch returns exit 0 for a workflow target with matches", async () => 
   );
   expect(code).toBe(0);
 });
+
+test("runSearch uses time-filtered execution ids for a workflow target", async () => {
+  const out = join(home, "filtered-search.json");
+  let internalCalls = 0;
+  const client = {
+    listExecutions: async () => {
+      throw new Error("public listing should not be used");
+    },
+    listExecutionsInternal: async () => {
+      internalCalls++;
+      return {
+        results: [{ id: 351694 }],
+        count: 1,
+        estimated: false,
+      };
+    },
+    getExecution: async () => execution,
+  };
+  const session = {
+    hasSession: () => true,
+    hasCredentials: () => false,
+    getCookie: async () => "n8n-auth=saved",
+    getBrowserId: () => "bid",
+    refreshCookie: async () => null,
+  };
+  const code = await runSearch(
+    "500857721",
+    "WF",
+    {
+      json: true,
+      quiet: true,
+      maxMatches: "100",
+      truncate: "200",
+      limit: "20",
+      from: "2026-07-14T06:00:00Z",
+      to: "2026-07-14T07:00:00Z",
+      out,
+    },
+    () => client as any,
+    () => session as any,
+  );
+  expect(code).toBe(0);
+  expect(internalCalls).toBe(1);
+  const payload = JSON.parse(await Bun.file(out).text());
+  expect(payload.timeWindow).toEqual({
+    from: "2026-07-14T06:00:00.000Z",
+    to: "2026-07-14T07:00:00.000Z",
+  });
+  expect(payload.summary.executionsSearched).toBe(1);
+});
+
+test("runSearch rejects time filters for an execution target", async () => {
+  const client = { getExecution: async () => execution };
+  await expect(
+    runSearch(
+      "500857721",
+      "351694",
+      {
+        json: true,
+        quiet: true,
+        maxMatches: "100",
+        truncate: "200",
+        since: "2h",
+      },
+      () => client as any,
+    ),
+  ).rejects.toMatchObject({ code: "bad-arguments" });
+});

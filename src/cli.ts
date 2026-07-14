@@ -87,6 +87,12 @@ program
   .option("--limit <n>", "page size", "20")
   .option("--cursor <cursor>", "pagination cursor")
   .option("--all", "auto-paginate up to 1000 executions")
+  .option("--from <date-time>", "executions started at or after this date/time")
+  .option("--to <date-time>", "executions started at or before this date/time")
+  .option(
+    "--since <duration-or-date-time>",
+    "executions since a duration such as 2h, or a date/time",
+  )
   .action(async (workflow, _options, command) => {
     const opts = command.optsWithGlobals();
     await execute(opts, () => runExecutions(workflow, opts));
@@ -103,6 +109,12 @@ program
   .option("--case-sensitive", "case-sensitive matching")
   .option("--limit <n>", "workflow target: executions to search", "20")
   .option("--status <status>", "workflow target: execution status filter")
+  .option("--from <date-time>", "executions started at or after this date/time")
+  .option("--to <date-time>", "executions started at or before this date/time")
+  .option(
+    "--since <duration-or-date-time>",
+    "executions since a duration such as 2h, or a date/time",
+  )
   .option("--max-matches <n>", "stop after this many matches", "100")
   .option("--context", "include each match's parent object")
   .option("--truncate <n>", "max characters per matched value", "200")

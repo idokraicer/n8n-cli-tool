@@ -17,8 +17,11 @@ import {
 import { searchUnits, type SearchOptions } from "../search";
 import { emitJson, progress } from "../format";
 import { requireIntOption } from "../options";
+import { SessionManager } from "../session";
+import { collectTimeFilteredExecutions, type ExecutionListSession } from "../execution-list";
+import { parseTimeWindow, type TimeWindowOpts } from "../time-window";
 
-export interface SearchCmdOpts {
+export interface SearchCmdOpts extends TimeWindowOpts {
   node?: string;
   exact?: boolean;
   regex?: boolean;
@@ -38,9 +41,12 @@ export interface SearchCmdOpts {
 }
 
 type ClientFactory = (instance: ResolvedInstance) => N8nClient;
+type SessionFactory = (instance: ResolvedInstance) => ExecutionListSession;
 
 const defaultClientFactory: ClientFactory = (instance) =>
   new N8nClient({ baseUrl: instance.baseUrl, apiKey: instance.apiKey });
+const defaultSessionFactory: SessionFactory = (instance) =>
+  new SessionManager(instance.host, instance.baseUrl);
 
 function resolveMode(opts: SearchCmdOpts): MatchMode {
   const chosen = [opts.exact && "exact", opts.regex && "regex"].filter(Boolean);
@@ -93,9 +99,11 @@ export async function runSearch(
   target: string,
   opts: SearchCmdOpts,
   clientFactory: ClientFactory = defaultClientFactory,
+  sessionFactory: SessionFactory = defaultSessionFactory,
 ): Promise<number> {
   const mode = resolveMode(opts);
   const quiet = opts.quiet ?? false;
+  const timeWindow = parseTimeWindow(opts);
 
   const parsed = parseN8nUrl(target);
   const instance = resolveInstance({
@@ -105,6 +113,12 @@ export async function runSearch(
   const client = clientFactory(instance);
 
   const kind = parsed ? parsed.kind : classifyBareId(target);
+  if (kind === "execution" && timeWindow) {
+    throw new CliError(
+      "bad-arguments",
+      "Execution time filters can only be used when searching a workflow.",
+    );
+  }
   const searchOpts: SearchOptions = {
     mode,
     caseSensitive: opts.caseSensitive ?? false,
@@ -153,16 +167,31 @@ export async function runSearch(
       `Listing up to ${limit} executions for workflow ${workflowId}...`,
       quiet,
     );
-    const page = await client.listExecutions({
-      workflowId,
-      status: opts.status,
-      limit,
-    });
-    progress(`Searching ${page.data.length} executions...`, quiet);
+    const rows = timeWindow
+      ? (
+          await collectTimeFilteredExecutions({
+            client,
+            session: sessionFactory(instance),
+            instance,
+            workflowId,
+            status: opts.status,
+            window: timeWindow,
+            maxResults: limit,
+            pageSize: limit || undefined,
+          })
+        ).data
+      : (
+          await client.listExecutions({
+            workflowId,
+            status: opts.status,
+            limit,
+          })
+        ).data;
+    progress(`Searching ${rows.length} executions...`, quiet);
 
     let index = 0;
     const concurrency = 5;
-    const ids = page.data.map((e: any) => String(e.id));
+    const ids = rows.map((e: any) => String(e.id));
     async function worker(): Promise<void> {
       while (index < ids.length && allMatches.length < searchOpts.maxMatches) {
         const id = ids[index++];
@@ -201,6 +230,7 @@ export async function runSearch(
           }
         : { type: "workflow", workflowId: parsed?.workflowId ?? target },
     matches: capped,
+    ...(timeWindow ? { timeWindow } : {}),
     summary: {
       matchCount: capped.length,
       executionsSearched,
