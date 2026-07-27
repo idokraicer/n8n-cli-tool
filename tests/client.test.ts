@@ -97,6 +97,32 @@ test("listExecutionsInternal maps an expired session to unauthorized", async () 
   ).rejects.toMatchObject({ code: "unauthorized" });
 });
 
+test("publishWorkflow POSTs to the public workflow activation endpoint", async () => {
+  let seenUrl = "";
+  let seenMethod = "";
+  let seenHeaders: Record<string, string> = {};
+  const client = clientWith(async (url, init) => {
+    seenUrl = String(url);
+    seenMethod = init?.method ?? "GET";
+    seenHeaders = init?.headers as Record<string, string>;
+    return jsonResponse({
+      id: "W 1",
+      name: "New Tool",
+      active: true,
+      nodes: [],
+      connections: {},
+    });
+  });
+
+  const result = await client.publishWorkflow("W 1");
+
+  expect(seenUrl).toBe("https://h.co/api/v1/workflows/W%201/activate");
+  expect(seenMethod).toBe("POST");
+  expect(seenHeaders["X-N8N-API-KEY"]).toBe("K");
+  expect(seenHeaders.Cookie).toBeUndefined();
+  expect(result.active).toBe(true);
+});
+
 test("a 401 maps to a CliError with code unauthorized", async () => {
   const client = clientWith(async () => jsonResponse({}, 401));
   try {

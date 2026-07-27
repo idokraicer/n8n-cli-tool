@@ -332,6 +332,13 @@ export class N8nClient {
     });
   }
 
+  publishWorkflow(id: string): Promise<WorkflowDefinition> {
+    return this.request<WorkflowDefinition>(
+      `/workflows/${encodeURIComponent(id)}/activate`,
+      { method: "POST" },
+    );
+  }
+
   async runWorkflow(
     id: string,
     payload: unknown,
