@@ -76,6 +76,7 @@ password is stored in the config file (mode 0600); to avoid that, pass
 | `validate <workflow>` | Check node references, diff vs live, and stale `$json`. |
 | `push <workflow>` | Push local changes back: merge changed nodes (default) or `--whole`. |
 | `create <file>` | Create a NEW workflow from a local JSON file (created inactive; `--yes`-gated). |
+| `publish <workflow>` | Publish an inactive workflow (preview by default; apply with `--yes`). |
 | `run <workflow>` | Test-run with sample data (webhook, or internal `/rest` for sub-workflows). |
 
 ## Examples
@@ -124,6 +125,10 @@ n8n-helper push "Apply Agreement" --whole --yes               # replace whole wo
 # Create a brand-new workflow from a local file (preview first, then --yes)
 n8n-helper create workflows/tools/my-new-tool.json             # preview no-op
 n8n-helper create workflows/tools/my-new-tool.json --yes       # create (inactive)
+
+# Publish the newly created inactive workflow (preview, then apply)
+n8n-helper publish "New Tool"
+n8n-helper publish "New Tool" --yes
 
 # Test-run end-to-end with sample data
 n8n-helper run "Apply Agreement" --data sample.json --poll

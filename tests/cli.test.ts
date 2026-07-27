@@ -25,9 +25,16 @@ async function run(args: string[]) {
 test("--help lists all six commands", async () => {
   const { stdout, exitCode } = await run(["--help"]);
   expect(exitCode).toBe(0);
-  for (const cmd of ["login", "sync", "workflows", "executions", "search", "get"]) {
+  for (const cmd of ["login", "sync", "workflows", "executions", "search", "get", "publish"]) {
     expect(stdout).toContain(cmd);
   }
+});
+
+test("publish help exposes the explicit write gate", async () => {
+  const { stdout, exitCode } = await run(["publish", "--help"]);
+  expect(exitCode).toBe(0);
+  expect(stdout).toContain("<workflow>");
+  expect(stdout).toContain("--yes");
 });
 
 test("a missing-credentials error exits 2 with a JSON envelope", async () => {

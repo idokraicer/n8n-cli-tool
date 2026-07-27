@@ -8,6 +8,7 @@ import { runExecutions } from "./commands/executions";
 import { runSearch } from "./commands/search";
 import { runGet } from "./commands/get";
 import { runRetry } from "./commands/retry";
+import { runPublish } from "./commands/publish";
 import { runPull } from "./commands/pull";
 import { runEdit, type EditSubcommand } from "./commands/edit";
 import { runValidate } from "./commands/validate";
@@ -252,6 +253,19 @@ program
   .action(async (file, _options, command) => {
     const opts = command.optsWithGlobals();
     await execute(opts, () => runCreate(file, opts));
+  });
+
+program
+  .command("publish")
+  .description("Publish an inactive workflow on n8n")
+  .argument("<workflow>", "exact workflow name, id, or URL")
+  .option(
+    "--yes",
+    "publish the workflow (required to write; otherwise a preview no-op)",
+  )
+  .action(async (workflow, _options, command) => {
+    const opts = command.optsWithGlobals();
+    await execute(opts, () => runPublish(workflow, opts));
   });
 
 program

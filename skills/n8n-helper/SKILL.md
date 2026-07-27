@@ -59,6 +59,7 @@ Most commands accept either a full n8n URL or a bare id. **Prefer a full URL whe
 | `validate <workflow>` | Check node references, diff vs live, and stale `$json`. |
 | `push <workflow>` | Push local changes back: merge changed nodes (default) or `--whole`. |
 | `create <file>` | Create a NEW workflow on the instance from a local JSON file (created inactive; `--yes`-gated). |
+| `publish <workflow>` | Publish an inactive workflow (preview by default; apply with `--yes`). |
 | `run <workflow>` | Test-run with sample data (webhook, or internal `/rest` for sub-workflows). |
 
 Run `n8n-helper <command> --help` for the full flag list — only the high-value flags are below.
@@ -198,14 +199,16 @@ same write discipline as `push`:
 ```bash
 n8n-helper create workflows/tools/my-new-tool.json            # preview only (no write)
 n8n-helper create workflows/tools/my-new-tool.json --yes      # create it (inactive)
+n8n-helper publish "New Tool"                                 # preview publish
+n8n-helper publish "New Tool" --yes                           # publish it
 n8n-helper create tool.json --name "Discount Tool" --yes      # override the file's name
 n8n-helper create tool.json --yes --force                     # create despite validation errors
 ```
 
 - **Preview by default** — without `--yes` it validates, reports what would be
   sent, and writes nothing. `--force` creates despite hard validation errors.
-- **Created inactive** (public-API behavior). Activate it in the n8n UI if it
-  needs a live trigger; `executeWorkflowTrigger` tools run when called regardless.
+- **Created inactive** (public-API behavior). Use `publish <workflow> --yes` if
+  it needs a live trigger; `executeWorkflowTrigger` tools run when called regardless.
 - Sends only the fields the public API's *create* schema accepts —
   `name`/`nodes`/`connections`/`settings` plus `staticData`, `description`,
   `nodeGroups`, and `pinData` when present — and reports the read-only fields it
