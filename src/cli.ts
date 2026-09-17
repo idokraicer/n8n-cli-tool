@@ -15,6 +15,7 @@ import { runValidate } from "./commands/validate";
 import { runPush } from "./commands/push";
 import { runCreate } from "./commands/create";
 import { runRun } from "./commands/run";
+import { maybeAutoUpdate, restartUpdatedCli } from "./auto-update";
 
 async function execute(
   opts: { json?: boolean; text?: boolean },
@@ -39,7 +40,11 @@ program
   .option("--json", "force JSON output")
   .option("--text", "force human-readable output")
   .option("--instance <host>", "n8n instance host to target")
-  .option("--quiet", "suppress progress messages");
+  .option("--quiet", "suppress progress messages")
+  .option(
+    "--no-update",
+    "skip auto-update and start a new six-hour check window",
+  );
 
 program
   .command("login")
@@ -282,7 +287,17 @@ program
     await execute(opts, () => runRun(workflow, opts));
   });
 
-program.parseAsync().catch((err) => {
+async function main(): Promise<void> {
+  const update = await maybeAutoUpdate();
+  const quiet = process.argv.includes("--quiet");
+  if (update.message && !quiet) console.error(update.message);
+  if (update.shouldRestart) {
+    process.exit(await restartUpdatedCli());
+  }
+  await program.parseAsync();
+}
+
+main().catch((err) => {
   const cliErr = toCliError(err);
   emitError(cliErr, resolveOutputMode(program.opts()));
   process.exit(2);

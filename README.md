@@ -32,8 +32,30 @@ If the command is not found, make sure `~/.bun/bin` is on your `PATH`
 (the Bun installer adds it to your shell profile; open a new terminal or
 `source` it).
 
-To update later, `git pull` in the clone — the linked binary always runs the
-current source. To remove it, run `bun unlink` in the clone.
+### Automatic updates
+
+On startup, `n8n-helper` checks its Git upstream for new commits at most once
+every six hours. When the linked checkout is clean and can fast-forward, it
+pulls the update and restarts the same command once with the new code. Offline,
+dirty, detached, and diverged checkouts keep running the requested command
+without updating. Failed checks also start a six-hour window, so an offline
+machine does not pause on every command.
+
+Skip the current check and start a fresh six-hour window with:
+
+```bash
+n8n-helper --no-update workflows
+```
+
+Disable automatic updates permanently in your shell configuration with:
+
+```bash
+export N8N_HELPER_AUTO_UPDATE=0
+```
+
+Remove that environment variable to enable checks again. Update state lives in
+`~/.n8n-helper/update-check.json`. To remove the linked CLI, run `bun unlink`
+in the clone.
 
 ## Authenticate
 

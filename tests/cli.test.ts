@@ -13,7 +13,13 @@ afterEach(() => {
 
 async function run(args: string[]) {
   const proc = Bun.spawn(["bun", "src/cli.ts", ...args], {
-    env: { ...process.env, N8N_HELPER_HOME: home, N8N_API_KEY: "", N8N_BASE_URL: "" },
+    env: {
+      ...process.env,
+      N8N_HELPER_HOME: home,
+      N8N_HELPER_AUTO_UPDATE: "0",
+      N8N_API_KEY: "",
+      N8N_BASE_URL: "",
+    },
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -28,6 +34,12 @@ test("--help lists all six commands", async () => {
   for (const cmd of ["login", "sync", "workflows", "executions", "search", "get", "publish"]) {
     expect(stdout).toContain(cmd);
   }
+});
+
+test("--help exposes the one-window auto-update opt-out", async () => {
+  const { stdout, exitCode } = await run(["--help"]);
+  expect(exitCode).toBe(0);
+  expect(stdout).toContain("--no-update");
 });
 
 test("publish help exposes the explicit write gate", async () => {
