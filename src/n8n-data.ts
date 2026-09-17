@@ -88,6 +88,10 @@ export function extractExecutionInfo(
     workflowId,
     status: execution.status ?? "unknown",
     mode: execution.mode ?? "unknown",
+    retryOf: execution.retryOf ? String(execution.retryOf) : null,
+    retrySuccessId: execution.retrySuccessId
+      ? String(execution.retrySuccessId)
+      : null,
     finished: Boolean(execution.finished),
     startedAt: execution.startedAt ?? null,
     stoppedAt: execution.stoppedAt ?? null,

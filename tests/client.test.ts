@@ -97,6 +97,32 @@ test("listExecutionsInternal maps an expired session to unauthorized", async () 
   ).rejects.toMatchObject({ code: "unauthorized" });
 });
 
+test("stopExecution posts to the public execution stop endpoint", async () => {
+  let seenUrl = "";
+  let seenMethod = "";
+  let seenHeaders: Record<string, string> = {};
+  const client = clientWith(async (url, init) => {
+    seenUrl = String(url);
+    seenMethod = init?.method ?? "GET";
+    seenHeaders = init?.headers as Record<string, string>;
+    return jsonResponse({ data: { status: "canceled" } });
+  });
+
+  expect(typeof (client as any).stopExecution).toBe("function");
+  if (typeof (client as any).stopExecution !== "function") return;
+
+  const result = await (client as any).stopExecution("723605");
+
+  expect(seenUrl).toBe("https://h.co/api/v1/executions/723605/stop");
+  expect(seenMethod).toBe("POST");
+  expect(seenHeaders["X-N8N-API-KEY"]).toBe("K");
+  expect(seenHeaders.Cookie).toBeUndefined();
+  expect(result).toEqual({
+    status: 200,
+    body: { data: { status: "canceled" } },
+  });
+});
+
 test("publishWorkflow POSTs to the public workflow activation endpoint", async () => {
   let seenUrl = "";
   let seenMethod = "";
@@ -250,6 +276,23 @@ test("runWorkflow sends the browser-id header when provided (required by /rest r
     fetchImpl: stubFetch((_u, init) => { browserId = (init!.headers as any)["browser-id"]; return new Response(JSON.stringify({ data: { executionId: "42" } }), { status: 200 }); }),
   });
   await client.runWorkflow("W1", {}, { cookie: "n8n-auth=abc", browserId: "bid-123" });
+  expect(browserId).toBe("bid-123");
+});
+
+test("retryExecution sends the browser-id header with the session cookie", async () => {
+  let cookie: string | undefined;
+  let browserId: string | undefined;
+  const client = new N8nClient({
+    baseUrl: "https://n8n.test", apiKey: "k",
+    fetchImpl: stubFetch((_u, init) => {
+      const headers = init!.headers as Record<string, string>;
+      cookie = headers.Cookie;
+      browserId = headers["browser-id"];
+      return new Response(JSON.stringify({ data: { executionId: "43" } }), { status: 200 });
+    }),
+  });
+  await client.retryExecution("42", { cookie: "n8n-auth=abc", browserId: "bid-123" });
+  expect(cookie).toBe("n8n-auth=abc");
   expect(browserId).toBe("bid-123");
 });
 

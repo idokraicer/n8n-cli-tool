@@ -8,6 +8,7 @@ import { runExecutions } from "./commands/executions";
 import { runSearch } from "./commands/search";
 import { runGet } from "./commands/get";
 import { runRetry } from "./commands/retry";
+import { runStop } from "./commands/stop";
 import { runPublish } from "./commands/publish";
 import { runPull } from "./commands/pull";
 import { runEdit, type EditSubcommand } from "./commands/edit";
@@ -150,6 +151,17 @@ program
   .action(async (workflow, _options, command) => {
     const opts = command.optsWithGlobals();
     await execute(opts, () => runRetry(workflow, opts));
+  });
+
+program
+  .command("stop")
+  .description("Stop one or more current/queued executions through n8n's public API")
+  .argument("<executions...>", "execution URLs or numeric ids")
+  .option("--yes", "apply the stop requests; without this flag, preview only")
+  .option("--concurrency <n>", "parallel stop requests", "5")
+  .action(async (executions, _options, command) => {
+    const opts = command.optsWithGlobals();
+    await execute(opts, () => runStop(executions, opts));
   });
 
 program

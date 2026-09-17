@@ -22,10 +22,10 @@ async function run(args: string[]) {
   return { stdout, exitCode };
 }
 
-test("--help lists all six commands", async () => {
+test("--help lists the execution control commands", async () => {
   const { stdout, exitCode } = await run(["--help"]);
   expect(exitCode).toBe(0);
-  for (const cmd of ["login", "sync", "workflows", "executions", "search", "get", "publish"]) {
+  for (const cmd of ["executions", "get", "retry", "stop", "publish"]) {
     expect(stdout).toContain(cmd);
   }
 });

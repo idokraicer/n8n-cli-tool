@@ -54,6 +54,7 @@ Most commands accept either a full n8n URL or a bare id. **Prefer a full URL whe
 | `search <value> <target>` | Locate a value inside one execution, or across a workflow's executions. |
 | `get <execution>` | Inspect an execution, drill into a node/path, or `--trace` its trigger chain. |
 | `retry <workflow>` | Re-run failed executions (needs session auth; preview with `--dry-run`). |
+| `stop <execution...>` | Preview or stop explicit executions (`--yes` applies; API-key auth). |
 | `pull <workflow>` | Fetch a workflow's full definition to a local file (diff-gated). |
 | `edit <workflow> <op>` | Edit a workflow (`set-code`/`set-prompt`/`replace-node`); local file, or live with `--remote`. Content options take `-` for stdin. |
 | `validate <workflow>` | Check node references, diff vs live, and stale `$json`. |

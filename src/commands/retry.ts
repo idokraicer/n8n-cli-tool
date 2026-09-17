@@ -28,11 +28,18 @@ export interface RetryOpts {
 type ClientFactory = (instance: ResolvedInstance) => N8nClient;
 
 const defaultClientFactory: ClientFactory = (instance) =>
-  new N8nClient({ baseUrl: instance.baseUrl, apiKey: instance.apiKey });
+  new N8nClient({
+    baseUrl: instance.baseUrl,
+    apiKey: instance.apiKey,
+    // n8n keeps the retry request open until the replay finishes. Agent
+    // workflows commonly take several minutes, so the generic 30s API
+    // timeout aborts a healthy retry before n8n returns its result.
+    timeoutMs: 10 * 60_000,
+  });
 
 export type Session = Pick<
   SessionManager,
-  "hasCredentials" | "getCookie" | "refreshCookie"
+  "hasCredentials" | "getCookie" | "getBrowserId" | "refreshCookie"
 >;
 type SessionFactory = (instance: ResolvedInstance) => Session;
 
@@ -104,6 +111,7 @@ export async function runRetry(
     undefined;
   const session = explicitCookie ? null : sessionFactory(instance);
   let cookie = explicitCookie ?? (await session?.getCookie()) ?? undefined;
+  let browserId = session?.getBrowserId();
 
   let candidates: string[];
 
@@ -196,6 +204,7 @@ export async function runRetry(
       return await client.retryExecution(id, {
         loadWorkflow: opts.loadWorkflow ?? false,
         cookie,
+        browserId,
       });
     } catch (err) {
       if (
@@ -206,9 +215,11 @@ export async function runRetry(
         const fresh = await refreshCookie();
         if (fresh) {
           cookie = fresh;
+          browserId = session.getBrowserId();
           return await client.retryExecution(id, {
             loadWorkflow: opts.loadWorkflow ?? false,
             cookie: fresh,
+            browserId,
           });
         }
       }

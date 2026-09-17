@@ -59,6 +59,8 @@ export interface ExecutionListItem {
   id: string;
   status: string;
   mode: string;
+  retryOf: string | null;
+  retrySuccessId: string | null;
   finished: boolean;
   startedAt: string | null;
   stoppedAt: string | null;
@@ -70,6 +72,8 @@ export interface ExecutionInfo {
   workflowId: string;
   status: string;
   mode: string;
+  retryOf: string | null;
+  retrySuccessId: string | null;
   finished: boolean;
   startedAt: string | null;
   stoppedAt: string | null;

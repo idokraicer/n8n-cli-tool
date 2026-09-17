@@ -50,7 +50,8 @@ Credentials are stored in `~/.n8n-helper/config.json`. Alternatively set
 too) — these override the config file and are the recommended path for agents.
 
 The `retry` command uses n8n's internal `/rest` API, which needs a browser
-session rather than an API key. Add your n8n login to enable it:
+session rather than an API key. Add your n8n login to enable it. `stop` uses
+the public API and the normal API key:
 
 ```bash
 n8n-helper login --url https://n8n.example.com --email you@example.com
@@ -71,6 +72,7 @@ password is stored in the config file (mode 0600); to avoid that, pass
 | `search <value> <target>` | Locate a value in an execution or across a workflow's executions. |
 | `get <execution>` | Inspect an execution, drill into a node/path, or `--trace` its trigger chain. |
 | `retry <workflow>` | Re-run a workflow's failed executions (filters, concurrency, dry-run). |
+| `stop <execution...>` | Stop current/queued executions (preview by default; apply with `--yes`). |
 | `pull <workflow>` | Fetch a workflow's full definition to a local file (diff-gated). |
 | `edit <workflow> <op>` | Edit a workflow (`set-code`, `set-prompt`, `replace-node`) — local file, or live with `--remote`; content options accept `-` for stdin. |
 | `validate <workflow>` | Check node references, diff vs live, and stale `$json`. |
@@ -106,6 +108,10 @@ n8n-helper get 351694 --trace
 # Re-run failed executions from the last day (preview first with --dry-run)
 n8n-helper retry WF --status error --started-after 2026-06-09T00:00:00Z --dry-run
 n8n-helper retry WF --status error --started-after 2026-06-09T00:00:00Z
+
+# Stop explicit current/queued executions (preview first, then apply)
+n8n-helper stop 723605 723606
+n8n-helper stop 723605 723606 --yes
 
 # Fileless edit (fastest): fetch live, apply, preview; --yes to push. '-' reads stdin.
 n8n-helper edit "Apply Agreement" set-code --node "Plan" --remote --code - <<'EOF'

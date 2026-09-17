@@ -71,18 +71,19 @@ test("runRetry dry-run lists candidates from listExecutions without calling retr
   expect(code).toBe(0);
 });
 
-test("runRetry uses the saved session cookie when none is passed", async () => {
-  const cookies: (string | undefined)[] = [];
+test("runRetry uses the saved session cookie and browser id when none is passed", async () => {
+  const auth: { cookie?: string; browserId?: string; loadWorkflow?: boolean }[] = [];
   const fakeClient = {
     listExecutions: async () => ({ data: [], nextCursor: null }),
-    retryExecution: async (_id: string, opts: { cookie?: string }) => {
-      cookies.push(opts.cookie);
+    retryExecution: async (_id: string, opts: { cookie?: string; browserId?: string; loadWorkflow?: boolean }) => {
+      auth.push(opts);
       return { status: 200, body: null };
     },
   };
   const session = {
     hasCredentials: () => true,
     getCookie: async () => "n8n-auth=saved",
+    getBrowserId: () => "bid-saved",
     refreshCookie: async () => "n8n-auth=saved",
   };
   const code = await runRetry(
@@ -92,7 +93,7 @@ test("runRetry uses the saved session cookie when none is passed", async () => {
     () => session,
   );
   expect(code).toBe(0);
-  expect(cookies).toEqual(["n8n-auth=saved"]);
+  expect(auth).toEqual([{ cookie: "n8n-auth=saved", browserId: "bid-saved", loadWorkflow: false }]);
 });
 
 test("runRetry refreshes the session once on 401 and retries", async () => {
@@ -111,6 +112,7 @@ test("runRetry refreshes the session once on 401 and retries", async () => {
   const session = {
     hasCredentials: () => true,
     getCookie: async () => "n8n-auth=stale",
+    getBrowserId: () => "bid-saved",
     refreshCookie: async () => {
       refreshes++;
       return "n8n-auth=fresh";
@@ -143,6 +145,7 @@ test("runRetry prefers an explicit --cookie over the saved session", async () =>
   let sessionUsed = false;
   const session = {
     hasCredentials: () => true,
+    getBrowserId: () => "bid-saved",
     getCookie: async () => {
       sessionUsed = true;
       return "n8n-auth=saved";

@@ -254,7 +254,7 @@ export class N8nClient {
 
   async retryExecution(
     id: string,
-    opts: { loadWorkflow?: boolean; cookie?: string } = {},
+    opts: { loadWorkflow?: boolean; cookie?: string; browserId?: string } = {},
   ): Promise<{ status: number; body: unknown }> {
     const url = `${this.baseUrl}/rest/executions/${encodeURIComponent(id)}/retry`;
     const headers: Record<string, string> = {
@@ -263,6 +263,7 @@ export class N8nClient {
       Accept: "application/json",
     };
     if (opts.cookie) headers.Cookie = opts.cookie;
+    if (opts.browserId) headers["browser-id"] = opts.browserId;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     let response: Response;
@@ -290,6 +291,14 @@ export class N8nClient {
       );
     }
     return { status: response.status, body };
+  }
+
+  async stopExecution(id: string): Promise<{ status: number; body: unknown }> {
+    const body = await this.request<unknown>(
+      `/executions/${encodeURIComponent(id)}/stop`,
+      { method: "POST" },
+    );
+    return { status: 200, body };
   }
 
   listWorkflows(params: {
