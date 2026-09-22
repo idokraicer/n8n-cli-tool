@@ -129,6 +129,14 @@ test("table rows list help exposes pagination, sort, and JSON filter inputs", as
   ]) {
     expect(stdout).toContain(flag);
   }
+
+  // Task 3 review finding: `table rows list` must accept a free-text search
+  // option alongside the structured JSON filters above. Commander renders an
+  // option that takes a value as `--search <placeholder>`, so require
+  // `--search` to be followed by an angle-bracketed value placeholder (e.g.
+  // `--search <text>` or `--search <query>`) instead of merely a bare prefix
+  // that could also match an unrelated flag such as `--search-all`.
+  expect(stdout).toMatch(/--search\s+<\S+>/);
 });
 
 test("table rows insert help exposes data inputs, --return, and the --yes write gate", async () => {

@@ -128,9 +128,11 @@ export function registerTable(
     .option("--cursor <cursor>", "pagination cursor")
     .option("--all", "auto-paginate up to 1000 rows")
     .option("--sort <column:direction>", "sort by column and direction")
+    .option("--search <text>", "free-text search across row values")
     .action(async (tableId, _options, command) => {
       const opts = command.optsWithGlobals();
       // `--filter-json`/`--sort` arrive camelCased; map to the handler fields.
+      // `--search` needs no mapping: `opts.search` already matches the handler.
       const { filterJson, sort, ...rest } = opts;
       await executeCommand(opts, () =>
         runTableRowsList(tableId, {
