@@ -102,6 +102,7 @@ password is stored in the config file (mode 0600); to avoid that, pass
 | `create <file>` | Create a NEW workflow from a local JSON file (created inactive; `--yes`-gated). |
 | `publish <workflow>` | Publish an inactive workflow (preview by default; apply with `--yes`). |
 | `run <workflow>` | Test-run with sample data (webhook, or internal `/rest` for sub-workflows). |
+| `table` | Manage n8n data tables: metadata, rows, and columns (API-key auth; previews by default). |
 
 ## Examples
 
@@ -180,6 +181,55 @@ n8n-helper login --url https://n8n.example.com --email you@example.com
 
 Ordinary execution listing without time filters continues to use the API key
 and does not require session authentication.
+
+## Data tables
+
+The `table` command manages n8n data tables through the public API. It needs
+only an API key; no browser session is required. Every write previews by
+default, and nothing is sent until you add `--yes`.
+
+```bash
+# Metadata: list, inspect, create, rename, delete
+n8n-helper table list --limit 50                  # --all auto-paginates (cap 1000)
+n8n-helper table list --name "Orders"
+n8n-helper table list --sort createdAt:desc --limit 20
+n8n-helper table get <tableId>
+n8n-helper table create "Orders" --columns-file columns.json
+n8n-helper table create "Orders" --columns-json '[{"name":"id","type":"string"}]' --yes
+n8n-helper table rename <tableId> "Orders 2026" --yes
+n8n-helper table delete <tableId> --yes
+
+# Rows: query, insert, update, upsert, delete, clear
+n8n-helper table rows list <tableId> --limit 20
+n8n-helper table rows list <tableId> --filter-json '{"type":"and","filters":[{"columnName":"status","condition":"eq","value":"new"}]}' --sort "status:asc"
+n8n-helper table rows list <tableId> --search "acme" --all
+n8n-helper table rows insert <tableId> --data-file rows.json --return id --yes
+n8n-helper table rows update <tableId> --data-json '{"status":"done"}' --filter-json '{"type":"and","filters":[{"columnName":"id","condition":"eq","value":"1"}]}' --dry-run
+n8n-helper table rows update <tableId> --data-file patch.json --filter-file filter.json --yes
+n8n-helper table rows upsert <tableId> --data-json '{"id":"1","status":"new"}' --filter-json '{"type":"and","filters":[{"columnName":"id","condition":"eq","value":"1"}]}' --yes
+n8n-helper table rows delete <tableId> --filter-json '{"type":"and","filters":[{"columnName":"status","condition":"eq","value":"stale"}]}' --dry-run
+n8n-helper table rows delete <tableId> --filter-file stale-filter.json --yes
+n8n-helper table rows clear <tableId> --yes
+
+# Columns: list, add, update, delete
+n8n-helper table columns list <tableId>
+n8n-helper table columns add <tableId> "notes" string --index 2 --yes
+n8n-helper table columns update <tableId> <columnId> --name "notes_v2" --index 1 --yes
+n8n-helper table columns delete <tableId> <columnId> --yes
+```
+
+`rows update`, `rows upsert`, and `rows delete` also support server-side
+`--dry-run`. This sends a public API request with `dryRun: true` and does not
+persist the change. It cannot be combined with `--yes`.
+
+JSON inputs accept either a file or inline value, never both:
+`--data-file`/`--data-json`, `--filter-file`/`--filter-json`, and
+`--columns-file`/`--columns-json`. Supported column types are `string`,
+`number`, `boolean`, and `date`.
+
+`--all` follows cursors up to 1,000 records per run and returns the next cursor
+when more data remains. Atomic `rows upsert` is exactly one public API request;
+it has no client-side list/insert/update fallback.
 
 ## Output and exit codes
 

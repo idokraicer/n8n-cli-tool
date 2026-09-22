@@ -1,14 +1,14 @@
 ---
 name: n8n-helper
-description: Use when working with a user's n8n instance (the workflow-automation tool) over its API — locating workflows by name/webhook/tag, listing or inspecting executions, finding where a value appears inside execution data, tracing what triggered a sub-workflow execution, re-running failed executions, or editing workflows end-to-end (pull a definition to a local file, inject code / prompts / whole nodes, validate, push back, and test-run with sample data). Use the n8n-helper CLI instead of hand-rolling curl against the n8n public API.
+description: Use when working with a user's n8n instance over its API — locating workflows, inspecting executions, tracing sub-workflows, editing workflows end-to-end, or managing n8n data tables and their rows and columns. Use the n8n-helper CLI instead of hand-rolling curl against the n8n public API.
 user-invocable: true
 ---
 
 # n8n-helper
 
-Locate n8n workflows and find values inside execution data over the n8n API, using the `n8n-helper` CLI.
+Locate n8n workflows, find values inside execution data, and manage data tables over the n8n API with the `n8n-helper` CLI.
 
-**Core rule:** For anything involving a user's n8n workflows or executions, use `n8n-helper` — do NOT hand-roll `curl`/`jq` against `/api/v1/...`. The CLI already wraps the API with workflow search (including webhook lookup, which the public API can't do), execution caching, pagination, trigger-chain tracing, and contextual value search.
+**Core rule:** For anything involving a user's n8n workflows, executions, or data tables, use `n8n-helper` — do NOT hand-roll `curl`/`jq` against `/api/v1/...`. The CLI already wraps the API with workflow search, execution caching, pagination, trigger-chain tracing, contextual value search, and table CRUD.
 
 ## Installation
 
@@ -25,7 +25,7 @@ If `~/.bun/bin` isn't on `PATH`, the binary won't resolve — open a new shell o
 
 Two separate credentials, depending on the command:
 
-- **API key** (most commands): set `N8N_API_KEY` and `N8N_BASE_URL` env vars (a project `.env` works) — this is the **recommended path for agents** and overrides the config file. Or persist to `~/.n8n-helper/config.json` with:
+- **API key** (most commands, including every `table` command): set `N8N_API_KEY` and `N8N_BASE_URL` env vars (a project `.env` works) — this is the **recommended path for agents** and overrides the config file. Or persist to `~/.n8n-helper/config.json` with:
   ```bash
   n8n-helper login --url https://n8n.example.com --key <api-key>
   ```
@@ -62,6 +62,7 @@ Most commands accept either a full n8n URL or a bare id. **Prefer a full URL whe
 | `create <file>` | Create a NEW workflow on the instance from a local JSON file (created inactive; `--yes`-gated). |
 | `publish <workflow>` | Publish an inactive workflow (preview by default; apply with `--yes`). |
 | `run <workflow>` | Test-run with sample data (webhook, or internal `/rest` for sub-workflows). |
+| `table` | Manage table metadata, rows, and columns through the public API. Writes preview by default. |
 
 Run `n8n-helper <command> --help` for the full flag list — only the high-value flags are below.
 
@@ -250,6 +251,47 @@ per command, since stdin is a single stream.
 - **`set-code`/`set-prompt` warn** (in the JSON `warning` field) when the target
   node isn't a Code / AI-Agent node — a signal the edit may be inert.
 
+## Data tables (`table`)
+
+All `table` commands use API-key authentication and the public API; they never
+need a browser session. Available operations are metadata
+`list`/`get`/`create`/`rename`/`delete`, rows
+`list`/`insert`/`update`/`upsert`/`delete`/`clear`, and columns
+`list`/`add`/`update`/`delete`.
+
+```bash
+n8n-helper table list --all
+n8n-helper table get <tableId>
+n8n-helper table create "Orders" --columns-file columns.json
+n8n-helper table rename <tableId> "Orders 2026" --yes
+n8n-helper table delete <tableId> --yes
+
+n8n-helper table rows list <tableId> --filter-json '{"type":"and","filters":[{"columnName":"status","condition":"eq","value":"new"}]}' --search "acme"
+n8n-helper table rows insert <tableId> --data-file rows.json --return count --yes
+n8n-helper table rows update <tableId> --data-json '{"status":"done"}' --filter-file id-filter.json --dry-run
+n8n-helper table rows upsert <tableId> --data-file row.json --filter-file key.json --yes
+n8n-helper table rows delete <tableId> --filter-file stale-filter.json --dry-run
+n8n-helper table rows clear <tableId> --yes
+
+n8n-helper table columns list <tableId>
+n8n-helper table columns add <tableId> "notes" string --yes
+n8n-helper table columns update <tableId> <columnId> --name "notes_v2" --index 1 --yes
+n8n-helper table columns delete <tableId> <columnId> --yes
+```
+
+Agent rules for `table`:
+
+- Preview every write first. Without `--yes`, it prints a preview and sends
+  nothing. Show that preview and get explicit approval before applying it.
+- `rows update`, `rows upsert`, and `rows delete` support server `--dry-run`.
+  This is a real non-persisting request, so obtain approval before sending it.
+- File and inline JSON flags are mutually exclusive: use one of
+  `--data-file`/`--data-json`, `--filter-file`/`--filter-json`, or
+  `--columns-file`/`--columns-json`.
+- Column types are `string`, `number`, `boolean`, and `date`.
+- `--all` is capped at 1,000 records per run.
+- Upsert is one atomic public API request, with no read-then-write fallback.
+
 ## Output and exit codes
 
 Output is **JSON when piped/non-TTY** and human-readable in a terminal. Force with `--json` / `--text`. In JSON mode, stdout carries only the JSON document; progress goes to stderr. When invoking from an agent, parse stdout as JSON.
@@ -288,3 +330,6 @@ Global flags: `--instance <host>` (target a non-default saved instance), `--quie
 - **Retrying without a preview.** Run `--dry-run` first and confirm the matched executions with the user before the real run.
 - **Passing the wrong target kind.** `get`/`search`-on-execution want an execution id/URL; `executions`/`retry`/`search`-on-workflow want a workflow id/URL.
 - **Forgetting it returns JSON when piped.** Read structured fields from stdout; don't scrape human text.
+- **Using a browser session for `table`.** Table commands use only the public API and API key.
+- **Passing `--yes` before approval.** Preview the exact table write first.
+- **Mixing file and inline JSON.** Choose exactly one input form for each payload.
