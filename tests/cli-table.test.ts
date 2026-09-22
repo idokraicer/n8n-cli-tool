@@ -105,3 +105,129 @@ test("table get is a read-only command without a write gate", async () => {
   expect(exitCode).toBe(0);
   expect(stdout).not.toContain("--yes");
 });
+
+const ROW_COMMANDS = ["list", "insert", "update", "upsert", "delete", "clear"];
+
+test("table rows help exposes all six row subcommands", async () => {
+  const { stdout, exitCode } = await run(["table", "rows", "--help"]);
+  expect(exitCode).toBe(0);
+  for (const name of ROW_COMMANDS) {
+    expect(stdout).toContain(name);
+  }
+});
+
+test("table rows list help exposes pagination, sort, and JSON filter inputs", async () => {
+  const { stdout, exitCode } = await run(["table", "rows", "list", "--help"]);
+  expect(exitCode).toBe(0);
+  for (const flag of [
+    "--filter-file",
+    "--filter-json",
+    "--limit",
+    "--cursor",
+    "--all",
+    "--sort",
+  ]) {
+    expect(stdout).toContain(flag);
+  }
+});
+
+test("table rows insert help exposes data inputs, --return, and the --yes write gate", async () => {
+  const { stdout, exitCode } = await run(["table", "rows", "insert", "--help"]);
+  expect(exitCode).toBe(0);
+  for (const flag of ["--data-file", "--data-json", "--yes"]) {
+    expect(stdout).toContain(flag);
+  }
+  // `--return` must be the bare return-type flag, not the `--return-data`
+  // boolean used by update/upsert.
+  expect(stdout).toMatch(/--return(?!-data)/);
+});
+
+test("table rows update help exposes data and filter inputs plus the write gate", async () => {
+  const { stdout, exitCode } = await run(["table", "rows", "update", "--help"]);
+  expect(exitCode).toBe(0);
+  for (const flag of [
+    "--data-file",
+    "--data-json",
+    "--filter-file",
+    "--filter-json",
+    "--return-data",
+    "--dry-run",
+    "--yes",
+  ]) {
+    expect(stdout).toContain(flag);
+  }
+});
+
+test("table rows upsert help exposes data and filter inputs plus the write gate", async () => {
+  const { stdout, exitCode } = await run(["table", "rows", "upsert", "--help"]);
+  expect(exitCode).toBe(0);
+  for (const flag of [
+    "--data-file",
+    "--data-json",
+    "--filter-file",
+    "--filter-json",
+    "--return-data",
+    "--dry-run",
+    "--yes",
+  ]) {
+    expect(stdout).toContain(flag);
+  }
+});
+
+test("table rows delete help exposes JSON filter inputs and the write gate", async () => {
+  const { stdout, exitCode } = await run(["table", "rows", "delete", "--help"]);
+  expect(exitCode).toBe(0);
+  for (const flag of [
+    "--filter-file",
+    "--filter-json",
+    "--return-data",
+    "--dry-run",
+    "--yes",
+  ]) {
+    expect(stdout).toContain(flag);
+  }
+});
+
+test("table rows clear help exposes the --yes write gate", async () => {
+  const { stdout, exitCode } = await run(["table", "rows", "clear", "--help"]);
+  expect(exitCode).toBe(0);
+  expect(stdout).toContain("--yes");
+});
+
+const COLUMN_COMMANDS = ["list", "add", "update", "delete"];
+
+test("table columns help exposes all four column subcommands", async () => {
+  const { stdout, exitCode } = await run(["table", "columns", "--help"]);
+  expect(exitCode).toBe(0);
+  for (const name of COLUMN_COMMANDS) {
+    expect(stdout).toContain(name);
+  }
+});
+
+test("table columns list help stays read-only without a write gate", async () => {
+  const { stdout, exitCode } = await run(["table", "columns", "list", "--help"]);
+  expect(exitCode).toBe(0);
+  expect(stdout).not.toContain("--yes");
+});
+
+test("table columns add help exposes the <type> argument, --index, and --yes", async () => {
+  const { stdout, exitCode } = await run(["table", "columns", "add", "--help"]);
+  expect(exitCode).toBe(0);
+  expect(stdout).toContain("<type>");
+  expect(stdout).toContain("--index");
+  expect(stdout).toContain("--yes");
+});
+
+test("table columns update help exposes optional --name/--index gated by --yes", async () => {
+  const { stdout, exitCode } = await run(["table", "columns", "update", "--help"]);
+  expect(exitCode).toBe(0);
+  for (const flag of ["--name", "--index", "--yes"]) {
+    expect(stdout).toContain(flag);
+  }
+});
+
+test("table columns delete help exposes the --yes write gate", async () => {
+  const { stdout, exitCode } = await run(["table", "columns", "delete", "--help"]);
+  expect(exitCode).toBe(0);
+  expect(stdout).toContain("--yes");
+});
