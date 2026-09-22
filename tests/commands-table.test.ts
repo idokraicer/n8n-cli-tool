@@ -161,6 +161,83 @@ test("runTableList --all stops at the 1000-record cap and preserves the final cu
   expect(parsed.nextCursor).toBe("cursor-2");
 });
 
+test("runTableList --all clamps an oversized --limit to the remaining capacity so no records are skipped", async () => {
+  // A single 2,000-record request would blow past the 1,000-record cap: the
+  // handler would truncate the array to 1,000 rows but keep the page's cursor,
+  // silently dropping records 1,001-2,000. The API limit must be clamped to the
+  // remaining capacity and the returned cursor must resume exactly after the
+  // last emitted row.
+  const TOTAL = 5000;
+  const calls: Array<Record<string, unknown>> = [];
+  const client = {
+    listDataTables: async (params: Record<string, unknown>) => {
+      calls.push(params);
+      const offset = params.cursor
+        ? Number(String(params.cursor).replace("offset:", ""))
+        : 0;
+      const size = (params.limit as number | undefined) ?? TOTAL;
+      const data = Array.from(
+        { length: Math.max(0, Math.min(size, TOTAL - offset)) },
+        (_, i) =>
+          dataTable({
+            id: `t${offset + i + 1}`,
+            name: `Table ${offset + i + 1}`,
+          }),
+      );
+      const next = offset + data.length;
+      return { data, nextCursor: next < TOTAL ? `offset:${next}` : null };
+    },
+  };
+
+  const { result, stdout } = await captureStdout(() =>
+    runTableList(
+      { all: true, limit: "2000", json: true, quiet: true },
+      () => client as never,
+    ),
+  );
+
+  expect(result).toBe(0);
+  expect(calls).toHaveLength(1);
+  // The 2,000-record request is clamped to the 1,000-record remaining capacity,
+  // not forwarded verbatim to the API.
+  expect(calls[0].limit).toBe(1000);
+  const parsed = JSON.parse(stdout);
+  expect(parsed.tables).toHaveLength(1000);
+  expect(parsed.count).toBe(1000);
+  // The last emitted row is t1000; the cursor must point at the very next record.
+  expect(parsed.tables[999].id).toBe("t1000");
+  expect(parsed.nextCursor).toBe("offset:1000");
+});
+
+test("runTableList --all stops on an empty page with a non-null cursor and preserves it", async () => {
+  // A backend can hand back an empty page while still advertising a cursor. The
+  // handler must treat that as the end: following it would loop forever. The
+  // second call is a tripwire -- if the handler chases the cursor it throws and
+  // the command surfaces an error instead of hanging.
+  const calls: Array<Record<string, unknown>> = [];
+  const client = {
+    listDataTables: async (params: Record<string, unknown>) => {
+      calls.push(params);
+      if (calls.length === 1) {
+        return { data: [], nextCursor: "c-empty" };
+      }
+      throw new Error("followed a cursor after an empty page");
+    },
+  };
+
+  const { result, stdout } = await captureStdout(() =>
+    runTableList({ all: true, json: true, quiet: true }, () => client as never),
+  );
+
+  expect(result).toBe(0);
+  expect(calls).toHaveLength(1);
+  const parsed = JSON.parse(stdout);
+  expect(parsed.tables).toEqual([]);
+  expect(parsed.count).toBe(0);
+  // The cursor from the empty page is preserved for the caller to resume.
+  expect(parsed.nextCursor).toBe("c-empty");
+});
+
 test("runTableList rejects a non-integer --limit without calling the API", async () => {
   let calls = 0;
   const client = {

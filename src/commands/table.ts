@@ -71,16 +71,30 @@ export async function runTableList(
     let nextCursor: string | null = null;
 
     for (;;) {
+      // `--all` must never ask for more than the remaining capacity, otherwise an
+      // oversized page would be truncated after the request and its cursor would
+      // skip the dropped records. Clamping the requested limit keeps the returned
+      // cursor pointing at the very next unemitted row.
+      const remaining = ALL_RESULT_CAP - tables.length;
+      const pageLimit = opts.all
+        ? limit === undefined
+          ? remaining
+          : Math.min(limit, remaining)
+        : limit;
+
       const page = await client.listDataTables({
         name: opts.name,
         sortBy: opts.sort,
-        limit,
+        limit: pageLimit,
         cursor,
       });
       tables.push(...page.data);
       nextCursor = page.nextCursor;
       // A plain list is a single page: report the cursor but never follow it.
       if (!opts.all) break;
+      // An empty page terminates the run even when the backend advertises a
+      // cursor; following it would spin forever.
+      if (page.data.length === 0) break;
       if (nextCursor === null) break;
       // Stop at the cap but keep the cursor that would fetch the next record.
       if (tables.length >= ALL_RESULT_CAP) break;
