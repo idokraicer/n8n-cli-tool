@@ -39,6 +39,8 @@ const defaultClientFactory: ClientFactory = (instance) =>
 const ROW_RETURN_TYPES = ["count", "id", "all"] as const;
 export type RowReturnType = (typeof ROW_RETURN_TYPES)[number];
 
+const DEFAULT_ROW_RETURN_TYPE: RowReturnType = "count";
+
 export interface CommonOpts {
   instance?: string;
   json?: boolean;
@@ -92,10 +94,8 @@ export interface RowsDeleteOpts extends CommonOpts {
 }
 
 function requireReturnType(raw: string | undefined): RowReturnType {
-  if (
-    raw === undefined ||
-    !(ROW_RETURN_TYPES as readonly string[]).includes(raw)
-  ) {
+  if (raw === undefined) return DEFAULT_ROW_RETURN_TYPE;
+  if (!(ROW_RETURN_TYPES as readonly string[]).includes(raw)) {
     throw new CliError(
       "bad-arguments",
       `--return must be one of ${ROW_RETURN_TYPES.join(", ")}.`,

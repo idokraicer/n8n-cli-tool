@@ -420,6 +420,26 @@ test("runTableRowsInsert previews an array of rows without writing", async () =>
   });
 });
 
+test("runTableRowsInsert defaults an omitted --return to count in the preview", async () => {
+  const { client, calls } = countingClient("insertDataTableRows");
+
+  const { result, stdout } = await captureStdout(() =>
+    runTableRowsInsert(
+      "T1",
+      { dataInline: '{"name":"Ada"}', json: true, quiet: true },
+      () => client as never,
+    ),
+  );
+
+  expect(result).toBe(0);
+  expect(calls()).toBe(0);
+  const parsed = JSON.parse(stdout);
+  expect(parsed.request).toEqual({
+    data: [{ name: "Ada" }],
+    returnType: "count",
+  });
+});
+
 test("runTableRowsInsert maps --return to returnType and writes exactly once with --yes", async () => {
   const bodies: Array<Record<string, unknown>> = [];
   const client = {
