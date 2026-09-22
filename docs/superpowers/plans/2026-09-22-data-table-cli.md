@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add API-key-only CLI commands for n8n Data Table metadata, rows, and columns.
+**Goal:** Add API-key-only CLI commands for n8n Data Table metadata, rows, and columns, including a single-request atomic row upsert.
 
 **Architecture:** Add one validated Data Table domain module, typed methods on the existing public API client, focused table/row/column command handlers, and one nested Commander registration module. Every mutation emits an exact local preview unless `--yes` is present; row update, upsert, and filtered delete also support a real n8n `dryRun` request.
 
@@ -20,6 +20,9 @@
 - Every mutation is a local no-request preview unless `--yes` is present.
 - `--dry-run` on row update, upsert, and delete calls n8n with `dryRun=true` and `returnData=true`; it does not require `--yes`. Reject combining `--dry-run` with `--yes`.
 - Never perform a live mutation while implementing or verifying this plan.
+- Preserve upsert atomicity by issuing exactly one public `/rows/upsert`
+  request. Never emulate upsert with a client-side read followed by update or
+  insert calls.
 
 ## Review focus
 
@@ -290,7 +293,7 @@ export async function runTableColumnsDelete(tableId: string, columnId: string, o
 | delete | non-empty filter | local preview | delete API query with both booleans true | delete API query with `returnData:false,dryRun:false` |
 | clear | none | local preview | invalid option | clear API |
 
-Also test that combining `--yes` and `--dry-run` throws `bad-arguments`, list maps `--sort` to `sortBy`, `--all` follows cursors up to 1,000 rows, and insert maps `--return` to `returnType`.
+Also test that combining `--yes` and `--dry-run` throws `bad-arguments`, list maps `--sort` to `sortBy`, `--all` follows cursors up to 1,000 rows, and insert maps `--return` to `returnType`. The upsert test must inject a fake client with `upsertDataTableRow` as its only row-write method, assert exactly one call, and fail if the handler attempts a list, update, or insert call.
 
 ```typescript
 test("row update dry-run calls n8n without --yes and forces returned data", async () => {
@@ -309,7 +312,7 @@ test("row update dry-run calls n8n without --yes and forces returned data", asyn
 
 - [ ] **Step 2: Confirm row RED.** Run `bun test tests/commands-table-rows.test.ts`. Expected failure: row handler module is missing.
 
-- [ ] **Step 3: Implement row handlers.** Parse all JSON at the command boundary with Task 1 helpers. Previews include the exact request body or query and make no API call. `--return-data` applies to real update and upsert calls; dry-run always overrides it to true. Reject unsupported flag combinations before resolving a client.
+- [ ] **Step 3: Implement row handlers.** Parse all JSON at the command boundary with Task 1 helpers. Previews include the exact request body or query and make no API call. `--return-data` applies to real update and upsert calls; dry-run always overrides it to true. Reject unsupported flag combinations before resolving a client. Upsert calls `upsertDataTableRow` exactly once and contains no client-side lookup, update, insert, or retry fallback.
 
 - [ ] **Step 4: Confirm row GREEN.** Run `bun test tests/commands-table-rows.test.ts`.
 

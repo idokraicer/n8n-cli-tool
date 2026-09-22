@@ -11,7 +11,7 @@ The CLI must support:
 
 - creating, listing, reading, renaming, and deleting tables;
 - reading and querying rows;
-- inserting, updating, upserting, deleting, and clearing rows; and
+- inserting, updating, atomically upserting, deleting, and clearing rows; and
 - listing, adding, renaming, reordering, and deleting columns.
 
 ## Command structure
@@ -105,6 +105,12 @@ single-element array. It also accepts `--return <count|id|all>`, defaulting to
 `rows update` and `rows upsert` require one data object. They accept
 `--return-data` to return affected rows.
 
+`rows upsert` is the atomic write operation. It sends one request to n8n's
+public `/rows/upsert` endpoint and never performs a client-side read followed by
+separate update or insert requests. n8n executes the match and update-or-insert
+inside one database transaction, so concurrent callers cannot observe the
+CLI splitting the operation into multiple writes.
+
 ### Row filters
 
 Query, update, upsert, and delete commands accept exactly one of:
@@ -156,6 +162,8 @@ With `--yes`:
 - create, insert, rename, column mutation, clear, and table deletion send the
   corresponding request once;
 - row update, upsert, and filtered deletion send the real write request;
+- row upsert always uses one public upsert request and has no read/update/insert
+  fallback in the CLI;
 - no command silently falls back to a private endpoint.
 
 The public API supports `dryRun` for row update, upsert, and filtered delete.
