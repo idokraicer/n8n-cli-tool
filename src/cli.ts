@@ -16,6 +16,7 @@ import { runValidate } from "./commands/validate";
 import { runPush } from "./commands/push";
 import { runCreate } from "./commands/create";
 import { runRun } from "./commands/run";
+import { registerTable } from "./commands/register-table";
 import { maybeAutoUpdate, restartUpdatedCli } from "./auto-update";
 
 async function execute(
@@ -298,6 +299,8 @@ program
     const opts = command.optsWithGlobals();
     await execute(opts, () => runRun(workflow, opts));
   });
+
+registerTable(program, execute);
 
 async function main(): Promise<void> {
   const update = await maybeAutoUpdate();

@@ -1,4 +1,11 @@
 import { CliError, type WorkflowDefinition } from "./types";
+import {
+  type CursorPage,
+  type DataTable,
+  type DataTableColumn,
+  type DataTableColumnInput,
+  type DataTableFilter,
+} from "./data-table";
 
 type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -161,7 +168,15 @@ export class N8nClient {
         );
       }
 
-      return (await response.json()) as T;
+      const responseBody = await parseResponseBody(response);
+      if (typeof responseBody === "string") {
+        throw new CliError(
+          "n8n-error",
+          `n8n returned a non-JSON response on ${url.pathname}.`,
+          responseBody.slice(0, 500),
+        );
+      }
+      return responseBody as T;
     }
   }
 
@@ -426,5 +441,187 @@ export class N8nClient {
       );
     }
     return { status: response.status, body: parsedBody };
+  }
+
+  listDataTables(params: {
+    limit?: number;
+    cursor?: string;
+    name?: string;
+    sortBy?: string;
+  }): Promise<CursorPage<DataTable>> {
+    return this.request<CursorPage<DataTable>>("/data-tables", {
+      query: {
+        limit: params.limit === undefined ? undefined : String(params.limit),
+        cursor: params.cursor,
+        filter:
+          params.name === undefined
+            ? undefined
+            : JSON.stringify({ name: params.name }),
+        sortBy: params.sortBy,
+      },
+    });
+  }
+
+  getDataTable(tableId: string): Promise<DataTable> {
+    return this.request<DataTable>(
+      `/data-tables/${encodeURIComponent(tableId)}`,
+    );
+  }
+
+  createDataTable(body: {
+    name: string;
+    projectId?: string;
+    columns: DataTableColumnInput[];
+  }): Promise<DataTable> {
+    return this.request<DataTable>("/data-tables", {
+      method: "POST",
+      body,
+    });
+  }
+
+  renameDataTable(tableId: string, name: string): Promise<DataTable> {
+    return this.request<DataTable>(
+      `/data-tables/${encodeURIComponent(tableId)}`,
+      { method: "PATCH", body: { name } },
+    );
+  }
+
+  deleteDataTable(tableId: string): Promise<null> {
+    return this.request<null>(`/data-tables/${encodeURIComponent(tableId)}`, {
+      method: "DELETE",
+    });
+  }
+
+  listDataTableRows(params: {
+    tableId: string;
+    limit?: number;
+    cursor?: string;
+    filter?: DataTableFilter;
+    sortBy?: string;
+    search?: string;
+  }): Promise<CursorPage<Record<string, unknown>>> {
+    return this.request<CursorPage<Record<string, unknown>>>(
+      `/data-tables/${encodeURIComponent(params.tableId)}/rows`,
+      {
+        query: {
+          limit: params.limit === undefined ? undefined : String(params.limit),
+          cursor: params.cursor,
+          filter:
+            params.filter === undefined
+              ? undefined
+              : JSON.stringify(params.filter),
+          sortBy: params.sortBy,
+          search: params.search,
+        },
+      },
+    );
+  }
+
+  insertDataTableRows(
+    tableId: string,
+    body: {
+      data: Record<string, unknown>[];
+      returnType: "count" | "id" | "all";
+    },
+  ): Promise<unknown> {
+    return this.request<unknown>(
+      `/data-tables/${encodeURIComponent(tableId)}/rows`,
+      { method: "POST", body },
+    );
+  }
+
+  updateDataTableRows(
+    tableId: string,
+    body: {
+      filter: DataTableFilter;
+      data: Record<string, unknown>;
+      returnData: boolean;
+      dryRun: boolean;
+    },
+  ): Promise<unknown> {
+    return this.request<unknown>(
+      `/data-tables/${encodeURIComponent(tableId)}/rows/update`,
+      { method: "PATCH", body },
+    );
+  }
+
+  upsertDataTableRow(
+    tableId: string,
+    body: {
+      filter: DataTableFilter;
+      data: Record<string, unknown>;
+      returnData: boolean;
+      dryRun: boolean;
+    },
+  ): Promise<unknown> {
+    return this.request<unknown>(
+      `/data-tables/${encodeURIComponent(tableId)}/rows/upsert`,
+      { method: "POST", body },
+    );
+  }
+
+  deleteDataTableRows(
+    tableId: string,
+    query: {
+      filter: DataTableFilter;
+      returnData: boolean;
+      dryRun: boolean;
+    },
+  ): Promise<unknown> {
+    return this.request<unknown>(
+      `/data-tables/${encodeURIComponent(tableId)}/rows/delete`,
+      {
+        method: "DELETE",
+        query: {
+          filter: JSON.stringify(query.filter),
+          returnData: String(query.returnData),
+          dryRun: String(query.dryRun),
+        },
+      },
+    );
+  }
+
+  clearDataTableRows(tableId: string): Promise<{ deletedCount: number }> {
+    return this.request<{ deletedCount: number }>(
+      `/data-tables/${encodeURIComponent(tableId)}/rows/clear`,
+      { method: "DELETE" },
+    );
+  }
+
+  listDataTableColumns(tableId: string): Promise<DataTableColumn[]> {
+    return this.request<DataTableColumn[]>(
+      `/data-tables/${encodeURIComponent(tableId)}/columns`,
+    );
+  }
+
+  addDataTableColumn(
+    tableId: string,
+    body: DataTableColumnInput,
+  ): Promise<DataTableColumn> {
+    return this.request<DataTableColumn>(
+      `/data-tables/${encodeURIComponent(tableId)}/columns`,
+      { method: "POST", body },
+    );
+  }
+
+  updateDataTableColumn(
+    tableId: string,
+    columnId: string,
+    body: { name?: string; index?: number },
+  ): Promise<DataTableColumn> {
+    return this.request<DataTableColumn>(
+      `/data-tables/${encodeURIComponent(tableId)}/columns/${encodeURIComponent(columnId)}`,
+      { method: "PATCH", body },
+    );
+  }
+
+  deleteDataTableColumn(
+    tableId: string,
+    columnId: string,
+  ): Promise<null> {
+    return this.request<null>(
+      `/data-tables/${encodeURIComponent(tableId)}/columns/${encodeURIComponent(columnId)}`,
+      { method: "DELETE" },
+    );
   }
 }
