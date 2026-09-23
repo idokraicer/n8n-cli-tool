@@ -7,7 +7,7 @@ import {
   type DataTableColumnInput,
 } from "../data-table";
 import { emitError, emitJson, resolveOutputMode, toCliError } from "../format";
-import { requireIntOption } from "../options";
+import { pageLimitFor, requireIntOption } from "../options";
 import type { ResolvedInstance } from "../types";
 
 // Public output contract exercised by the staged tests (JSON mode):
@@ -76,11 +76,7 @@ export async function runTableList(
       // skip the dropped records. Clamping the requested limit keeps the returned
       // cursor pointing at the very next unemitted row.
       const remaining = ALL_RESULT_CAP - tables.length;
-      const pageLimit = opts.all
-        ? limit === undefined
-          ? remaining
-          : Math.min(limit, remaining)
-        : limit;
+      const pageLimit = pageLimitFor(limit, opts.all, remaining);
 
       const page = await client.listDataTables({
         name: opts.name,
@@ -161,6 +157,7 @@ export async function runTableCreate(
     // Safe no-op: never write without an explicit --yes.
     if (!opts.yes) {
       emitJson({
+        instance: instance.host,
         preview: true,
         operation: "create-table",
         request,
@@ -198,6 +195,7 @@ export async function runTableRename(
 
     if (!opts.yes) {
       emitJson({
+        instance: instance.host,
         preview: true,
         operation: "rename-table",
         request,
@@ -234,6 +232,7 @@ export async function runTableDelete(
 
     if (!opts.yes) {
       emitJson({
+        instance: instance.host,
         preview: true,
         operation: "delete-table",
         request,

@@ -67,6 +67,9 @@ test("table list help exposes pagination and filter options", async () => {
   for (const flag of ["--limit", "--cursor", "--all", "--name", "--sort"]) {
     expect(stdout).toContain(flag);
   }
+  expect(stdout).toContain("--sort <field:direction>");
+  expect(stdout).toContain("name:asc");
+  expect(stdout).toContain("createdAt:desc");
 });
 
 test("table metadata mutation help exposes the --yes write gate", async () => {

@@ -52,7 +52,7 @@ export function registerTable(
     .option("--cursor <cursor>", "pagination cursor")
     .option("--all", "auto-paginate up to 1000 tables")
     .option("--name <name>", "filter by exact table name")
-    .option("--sort <field>", "sort field (name | createdAt | updatedAt)")
+    .option("--sort <field:direction>", "sort as field:asc|desc (e.g. name:asc, createdAt:desc)")
     .action(async (_options, command) => {
       const opts = command.optsWithGlobals();
       await executeCommand(opts, () => runTableList(opts));

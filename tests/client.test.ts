@@ -169,6 +169,14 @@ test("a 404 maps to code not-found", async () => {
   }
 });
 
+test("a successful non-JSON response throws a CliError", async () => {
+  const client = clientWith(async () => new Response("<html>proxy error</html>"));
+  await expect(client.getExecution("5")).rejects.toMatchObject({
+    code: "n8n-error",
+    message: expect.stringContaining("non-JSON response"),
+  });
+});
+
 test("a 429 is retried then succeeds", async () => {
   let calls = 0;
   const client = clientWith(async () => {

@@ -168,7 +168,15 @@ export class N8nClient {
         );
       }
 
-      return (await parseResponseBody(response)) as T;
+      const responseBody = await parseResponseBody(response);
+      if (typeof responseBody === "string") {
+        throw new CliError(
+          "n8n-error",
+          `n8n returned a non-JSON response on ${url.pathname}.`,
+          responseBody.slice(0, 500),
+        );
+      }
+      return responseBody as T;
     }
   }
 

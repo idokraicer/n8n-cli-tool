@@ -161,7 +161,7 @@ test("runTableList --all stops at the 1000-record cap and preserves the final cu
   expect(parsed.nextCursor).toBe("cursor-2");
 });
 
-test("runTableList --all clamps an oversized --limit to the remaining capacity so no records are skipped", async () => {
+test("runTableList --all caps API pages at 250 without skipping records", async () => {
   // A single 2,000-record request would blow past the 1,000-record cap: the
   // handler would truncate the array to 1,000 rows but keep the page's cursor,
   // silently dropping records 1,001-2,000. The API limit must be clamped to the
@@ -197,10 +197,8 @@ test("runTableList --all clamps an oversized --limit to the remaining capacity s
   );
 
   expect(result).toBe(0);
-  expect(calls).toHaveLength(1);
-  // The 2,000-record request is clamped to the 1,000-record remaining capacity,
-  // not forwarded verbatim to the API.
-  expect(calls[0].limit).toBe(1000);
+  expect(calls).toHaveLength(4);
+  expect(calls.map((call) => call.limit)).toEqual([250, 250, 250, 250]);
   const parsed = JSON.parse(stdout);
   expect(parsed.tables).toHaveLength(1000);
   expect(parsed.count).toBe(1000);
@@ -256,6 +254,17 @@ test("runTableList rejects a non-integer --limit without calling the API", async
   expect(JSON.parse(stdout).error.code).toBe("bad-arguments");
 });
 
+test("runTableList rejects --limit 0 without calling the API", async () => {
+  let calls = 0;
+  const client = { listDataTables: async () => { calls++; throw new Error("unexpected"); } };
+  const { result, stdout } = await captureStdout(() =>
+    runTableList({ limit: "0", json: true, quiet: true }, () => client as never),
+  );
+  expect(result).toBe(2);
+  expect(calls).toBe(0);
+  expect(JSON.parse(stdout).error.code).toBe("bad-arguments");
+});
+
 test("runTableGet emits a table without requiring sizeBytes", async () => {
   const ids: string[] = [];
   const client = {
@@ -302,6 +311,7 @@ test("runTableCreate previews the exact request and does not write", async () =>
   expect(result).toBe(0);
   expect(calls).toBe(0);
   const parsed = JSON.parse(stdout);
+  expect(parsed.instance).toBe("h.co");
   expect(parsed.preview).toBe(true);
   expect(parsed.operation).toBe("create-table");
   expect(parsed.request).toEqual({
@@ -488,6 +498,7 @@ test("runTableRename previews the exact target and does not write", async () => 
   expect(result).toBe(0);
   expect(calls).toBe(0);
   const parsed = JSON.parse(stdout);
+  expect(parsed.instance).toBe("h.co");
   expect(parsed.preview).toBe(true);
   expect(parsed.operation).toBe("rename-table");
   expect(parsed.request).toEqual({ tableId: "t1", name: "Renamed" });
@@ -536,6 +547,7 @@ test("runTableDelete previews the exact target and does not write", async () => 
   expect(result).toBe(0);
   expect(calls).toBe(0);
   const parsed = JSON.parse(stdout);
+  expect(parsed.instance).toBe("h.co");
   expect(parsed.preview).toBe(true);
   expect(parsed.operation).toBe("delete-table");
   expect(parsed.request).toEqual({ tableId: "t1" });

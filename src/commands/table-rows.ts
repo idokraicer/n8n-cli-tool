@@ -8,7 +8,7 @@ import {
   type DataTableFilter,
 } from "../data-table";
 import { emitError, emitJson, resolveOutputMode, toCliError } from "../format";
-import { requireIntOption } from "../options";
+import { pageLimitFor, requireIntOption } from "../options";
 import { CliError, type ResolvedInstance } from "../types";
 
 // Public output contract exercised by the staged tests (JSON mode):
@@ -161,11 +161,7 @@ export async function runTableRowsList(
       // remaining capacity keeps the returned cursor pointing at the very next
       // unemitted row instead of skipping records dropped after the request.
       const remaining = ALL_RESULT_CAP - rows.length;
-      const pageLimit = opts.all
-        ? limit === undefined
-          ? remaining
-          : Math.min(limit, remaining)
-        : limit;
+      const pageLimit = pageLimitFor(limit, opts.all, remaining);
 
       const page = await client.listDataTableRows({
         tableId,
@@ -241,6 +237,7 @@ export async function runTableRowsInsert(
     // Safe no-op: never write without an explicit --yes.
     if (!opts.yes) {
       emitJson({
+        instance: instance.host,
         preview: true,
         operation: "insert-rows",
         request,
@@ -331,7 +328,7 @@ async function runRowsWrite(
 
     // Neither --yes nor --dry-run: a safe local preview, no API call.
     if (!opts.yes && !dryRun) {
-      emitJson({ preview: true, operation, request, hint });
+      emitJson({ instance: instance.host, preview: true, operation, request, hint });
       return 0;
     }
 
@@ -418,6 +415,7 @@ export async function runTableRowsDelete(
 
     if (!opts.yes && !opts.dryRun) {
       emitJson({
+        instance: instance.host,
         preview: true,
         operation: "delete-rows",
         request,
@@ -472,6 +470,7 @@ export async function runTableRowsClear(
 
     if (!opts.yes) {
       emitJson({
+        instance: instance.host,
         preview: true,
         operation: "clear-rows",
         request,

@@ -185,8 +185,9 @@ and does not require session authentication.
 ## Data tables
 
 The `table` command manages n8n data tables through the public API. It needs
-only an API key; no browser session is required. Every write previews by
-default, and nothing is sent until you add `--yes`.
+only an API key; no browser session is required. Persisted writes preview by
+default and require `--yes`. Server-side `--dry-run` sends a non-persisting API
+request without `--yes`.
 
 ```bash
 # Metadata: list, inspect, create, rename, delete

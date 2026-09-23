@@ -230,7 +230,7 @@ test("runTableRowsList --all stops at the 1000-row cap and preserves the final c
   expect(parsed.nextCursor).toBe("cursor-2");
 });
 
-test("runTableRowsList --all clamps an oversized --limit to the remaining capacity", async () => {
+test("runTableRowsList --all caps API pages at 250 without skipping rows", async () => {
   // A single 2000-row request would blow past the 1000-row cap. The API limit
   // must be clamped to the remaining capacity and the returned cursor must
   // resume exactly after the last emitted row.
@@ -261,8 +261,8 @@ test("runTableRowsList --all clamps an oversized --limit to the remaining capaci
   );
 
   expect(result).toBe(0);
-  expect(calls).toHaveLength(1);
-  expect(calls[0].limit).toBe(1000);
+  expect(calls).toHaveLength(4);
+  expect(calls.map((call) => call.limit)).toEqual([250, 250, 250, 250]);
   const parsed = JSON.parse(stdout);
   const rows = emittedRows(parsed);
   expect(rows).toHaveLength(1000);
@@ -299,6 +299,16 @@ test("runTableRowsList rejects a non-integer --limit without calling the API", a
     ),
   );
 
+  expect(result).toBe(2);
+  expect(calls()).toBe(0);
+  expect(errorCode(stdout)).toBe("bad-arguments");
+});
+
+test("runTableRowsList rejects --limit 0 without calling the API", async () => {
+  const { client, calls } = countingClient("listDataTableRows");
+  const { result, stdout } = await captureStdout(() =>
+    runTableRowsList("T1", { limit: "0", json: true, quiet: true }, () => client as never),
+  );
   expect(result).toBe(2);
   expect(calls()).toBe(0);
   expect(errorCode(stdout)).toBe("bad-arguments");
@@ -380,6 +390,7 @@ test("runTableRowsInsert previews an object row as a one-element array without w
   expect(result).toBe(0);
   expect(calls).toBe(0);
   const parsed = JSON.parse(stdout);
+  expect(parsed.instance).toBe("h.co");
   expect(parsed.preview).toBe(true);
   expect(parsed.request).toMatchObject({
     data: [{ name: "Ada" }],
@@ -653,6 +664,7 @@ test("runTableRowsUpdate previews the exact filter and row data without writing"
   expect(result).toBe(0);
   expect(calls).toBe(0);
   const parsed = JSON.parse(stdout);
+  expect(parsed.instance).toBe("h.co");
   expect(parsed.preview).toBe(true);
   expect(parsed.request).toMatchObject({
     filter: VALID_FILTER,
@@ -890,6 +902,7 @@ test("runTableRowsUpsert previews the exact filter and row data without writing"
   expect(result).toBe(0);
   expect(calls).toBe(0);
   const parsed = JSON.parse(stdout);
+  expect(parsed.instance).toBe("h.co");
   expect(parsed.preview).toBe(true);
   expect(parsed.request).toMatchObject({
     filter: VALID_FILTER,
@@ -1067,6 +1080,7 @@ test("runTableRowsDelete previews the exact filter without writing", async () =>
   expect(result).toBe(0);
   expect(calls).toBe(0);
   const parsed = JSON.parse(stdout);
+  expect(parsed.instance).toBe("h.co");
   expect(parsed.preview).toBe(true);
   expect(parsed.request).toMatchObject({ filter: VALID_FILTER });
   expect(parsed.hint).toContain("--yes");
@@ -1190,6 +1204,7 @@ test("runTableRowsClear previews the exact table and does not write", async () =
   expect(result).toBe(0);
   expect(calls).toBe(0);
   const parsed = JSON.parse(stdout);
+  expect(parsed.instance).toBe("h.co");
   expect(parsed.preview).toBe(true);
   expect(parsed.request).toEqual({ tableId: "T1" });
   expect(parsed.hint).toContain("--yes");

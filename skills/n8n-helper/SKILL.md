@@ -281,10 +281,12 @@ n8n-helper table columns delete <tableId> <columnId> --yes
 
 Agent rules for `table`:
 
-- Preview every write first. Without `--yes`, it prints a preview and sends
-  nothing. Show that preview and get explicit approval before applying it.
+- Preview persisted writes first. Without `--yes`, the CLI prints a local
+  preview and sends nothing. Show that preview and get explicit approval before
+  applying it.
 - `rows update`, `rows upsert`, and `rows delete` support server `--dry-run`.
-  This is a real non-persisting request, so obtain approval before sending it.
+  This sends a real non-persisting API request without `--yes`, so obtain
+  approval before sending it.
 - File and inline JSON flags are mutually exclusive: use one of
   `--data-file`/`--data-json`, `--filter-file`/`--filter-json`, or
   `--columns-file`/`--columns-json`.

@@ -85,6 +85,7 @@ export async function runTableColumnsAdd(
     // Safe no-op: never write without an explicit --yes.
     if (!opts.yes) {
       emitJson({
+        instance: instance.host,
         preview: true,
         operation: "add-column",
         request: { tableId, ...body },
@@ -141,6 +142,7 @@ export async function runTableColumnsUpdate(
     // Safe no-op: never write without an explicit --yes.
     if (!opts.yes) {
       emitJson({
+        instance: instance.host,
         preview: true,
         operation: "update-column",
         request: { tableId, columnId, ...body },
@@ -178,6 +180,7 @@ export async function runTableColumnsDelete(
     // Safe no-op: never write without an explicit --yes.
     if (!opts.yes) {
       emitJson({
+        instance: instance.host,
         preview: true,
         operation: "delete-column",
         request: { tableId, columnId },

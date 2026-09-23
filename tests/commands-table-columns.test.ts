@@ -278,6 +278,7 @@ test("runTableColumnsAdd previews the column without --yes and makes zero API ca
   expect(result).toBe(0);
   expect(calls).toBe(0);
   const parsed = JSON.parse(stdout);
+  expect(parsed.instance).toBe("h.co");
   expect(parsed.preview).toBe(true);
   expect(parsed.operation).toBe("add-column");
   expect(parsed.request).toMatchObject({
@@ -445,6 +446,7 @@ test("runTableColumnsUpdate previews the rename/move without --yes and makes zer
   expect(result).toBe(0);
   expect(calls).toBe(0);
   const parsed = JSON.parse(stdout);
+  expect(parsed.instance).toBe("h.co");
   expect(parsed.preview).toBe(true);
   expect(parsed.operation).toBe("update-column");
   expect(parsed.request).toMatchObject({
@@ -472,6 +474,7 @@ test("runTableColumnsDelete previews the exact target without --yes and makes ze
   expect(result).toBe(0);
   expect(calls).toBe(0);
   const parsed = JSON.parse(stdout);
+  expect(parsed.instance).toBe("h.co");
   expect(parsed.preview).toBe(true);
   expect(parsed.operation).toBe("delete-column");
   expect(parsed.request).toMatchObject({ tableId: "T1", columnId: "C1" });
