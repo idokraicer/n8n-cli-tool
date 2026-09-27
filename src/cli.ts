@@ -288,7 +288,7 @@ program
 
 program
   .command("run")
-  .description("Test-run a workflow with sample data (webhook or internal /rest)")
+  .description("Test-run a workflow with sample data (webhook, public chat, or internal /rest)")
   .argument("<workflow>", "exact workflow name, id, or URL")
   .option("--data <path>", "sample input JSON file")
   .option("--data-inline <json>", "sample input as an inline JSON string")

@@ -18,8 +18,11 @@ export function extractWebhooks(
   const entries: WebhookEntry[] = [];
   for (const node of nodes) {
     if (!isWebhookNode(node)) continue;
-    const path = String(node?.parameters?.path || node?.webhookId || "");
-    const method = String(node?.parameters?.httpMethod ?? "GET").toUpperCase();
+    const isChat = node.type === "@n8n/n8n-nodes-langchain.chatTrigger";
+    const path = isChat
+      ? `${String(node.webhookId ?? "")}/chat`
+      : String(node?.parameters?.path || node?.webhookId || "");
+    const method = isChat ? "POST" : String(node?.parameters?.httpMethod ?? "GET").toUpperCase();
     entries.push({
       node: String(node?.name ?? ""),
       method,

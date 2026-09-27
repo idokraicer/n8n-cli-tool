@@ -27,6 +27,19 @@ const webhookWorkflow: WorkflowDefinition = {
   connections: {},
 };
 
+const chatWorkflow: WorkflowDefinition = {
+  id: "chat-wf",
+  name: "Chat WF",
+  nodes: [{
+    id: "chat",
+    name: "When chat message received",
+    type: "@n8n/n8n-nodes-langchain.chatTrigger",
+    webhookId: "chat-hook-id",
+    parameters: { public: true },
+  }],
+  connections: {},
+};
+
 test("detectTrigger chooses webhook by default when a webhook node exists", () => {
   expect(detectTrigger(webhookWorkflow)).toEqual({
     kind: "webhook",
@@ -53,6 +66,26 @@ test("detectTrigger chooses internal when only executeWorkflowTrigger exists", (
     kind: "internal",
     triggerNode: "Execute Workflow Trigger",
   });
+});
+
+test("detectTrigger chooses Chat Trigger by default and with --node", () => {
+  const plan = { kind: "webhook" as const, triggerNode: "When chat message received" };
+  expect(detectTrigger(chatWorkflow)).toEqual(plan);
+  expect(detectTrigger(chatWorkflow, "When chat message received")).toEqual(plan);
+});
+
+test("buildWebhookRequest posts chat data to the Chat Trigger URL", () => {
+  const data = { chatInput: "Hello", sessionId: "test-session" };
+  expect(buildWebhookRequest("https://n8n.example/", chatWorkflow, "When chat message received", data)).toEqual({
+    url: "https://n8n.example/webhook/chat-hook-id/chat",
+    method: "POST",
+    body: data,
+  });
+});
+
+test("buildWebhookRequest rejects a private Chat Trigger", () => {
+  const def = { ...chatWorkflow, nodes: [{ ...chatWorkflow.nodes[0], parameters: {} }] };
+  expect(() => buildWebhookRequest("https://n8n.example", def, "When chat message received", {})).toThrow("is not publicly available");
 });
 
 test("detectTrigger honors --node override and classifies by node type", () => {

@@ -29,6 +29,22 @@ test("falls back to webhookId and GET when parameters are absent", () => {
   expect(w.method).toBe("GET");
 });
 
+test("extracts the Chat Trigger POST URL", () => {
+  const nodes = [{
+    name: "When chat message received",
+    type: "@n8n/n8n-nodes-langchain.chatTrigger",
+    webhookId: "chat-hook-id",
+    parameters: { public: true },
+  }];
+  expect(extractWebhooks(nodes, "https://h.co")).toEqual([{
+    node: "When chat message received",
+    method: "POST",
+    path: "chat-hook-id/chat",
+    productionUrl: "https://h.co/webhook/chat-hook-id/chat",
+    testUrl: "https://h.co/webhook-test/chat-hook-id/chat",
+  }]);
+});
+
 test("treats any node carrying a webhookId as a webhook", () => {
   const nodes = [
     { name: "Form", type: "n8n-nodes-base.formTrigger", webhookId: "f1", parameters: {} },

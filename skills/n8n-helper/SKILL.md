@@ -61,7 +61,7 @@ Most commands accept either a full n8n URL or a bare id. **Prefer a full URL whe
 | `push <workflow>` | Push local changes back: merge changed nodes (default) or `--whole`. |
 | `create <file>` | Create a NEW workflow on the instance from a local JSON file (created inactive; `--yes`-gated). |
 | `publish <workflow>` | Publish an inactive workflow (preview by default; apply with `--yes`). |
-| `run <workflow>` | Test-run with sample data (webhook, or internal `/rest` for sub-workflows). |
+| `run <workflow>` | Test-run with sample data (Webhook, public Chat Trigger, or internal `/rest` for sub-workflows). |
 | `table` | Manage table metadata, rows, and columns through the public API. Writes preview by default. |
 
 Run `n8n-helper <command> --help` for the full flag list — only the high-value flags are below.

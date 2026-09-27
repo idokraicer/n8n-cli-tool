@@ -37,6 +37,19 @@ const internalWorkflow: WorkflowDefinition = {
   connections: {},
 };
 
+const chatWorkflow: WorkflowDefinition = {
+  id: "WF",
+  name: "Chat WF",
+  nodes: [{
+    id: "n1",
+    name: "When chat message received",
+    type: "@n8n/n8n-nodes-langchain.chatTrigger",
+    webhookId: "chat-hook-id",
+    parameters: { public: true },
+  }],
+  connections: {},
+};
+
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "n8n-helper-run-"));
   process.env.N8N_HELPER_HOME = home;
@@ -122,6 +135,30 @@ test("runRun reads sample data from a file", async () => {
 
   expect(code).toBe(0);
   expect(calls).toEqual([{ file: true }]);
+});
+
+test("runRun posts chat input to a public Chat Trigger", async () => {
+  const calls: unknown[] = [];
+  const client = {
+    listWorkflows: async () => ({ data: [], nextCursor: null }),
+    getWorkflow: async () => chatWorkflow,
+    sendWebhook: async (url: string, opts: { method: string; body?: unknown }) => {
+      calls.push({ url, ...opts });
+      return { status: 200, body: { output: "Hi" } };
+    },
+  };
+  const code = await runRun(
+    "WF",
+    { dataInline: '{"chatInput":"Hello","sessionId":"s1"}', json: true, quiet: true },
+    () => client as any,
+  );
+  expect(code).toBe(0);
+  expect(calls).toEqual([{
+    url: "https://h.co/webhook/chat-hook-id/chat",
+    method: "POST",
+    body: { chatInput: "Hello", sessionId: "s1" },
+  }]);
+  expect(emitted()).toMatchObject({ mode: "webhook", result: { output: "Hi" } });
 });
 
 test("runRun posts internal payload with a saved session and emits internal mode", async () => {
