@@ -6,10 +6,11 @@ import {
 } from "./types";
 
 const WEBHOOK_TYPE = "n8n-nodes-base.webhook";
+const CHAT_TYPE = "@n8n/n8n-nodes-langchain.chatTrigger";
 const INTERNAL_TYPE = "n8n-nodes-base.executeWorkflowTrigger";
 
 function triggerKind(node: WorkflowNode): RunPlan["kind"] | null {
-  if (node.type === WEBHOOK_TYPE) return "webhook";
+  if (node.type === WEBHOOK_TYPE || node.type === CHAT_TYPE) return "webhook";
   if (node.type === INTERNAL_TYPE) return "internal";
   return null;
 }
@@ -40,6 +41,9 @@ export function detectTrigger(
 
   const webhook = def.nodes.find((node) => node.type === WEBHOOK_TYPE);
   if (webhook) return { kind: "webhook", triggerNode: webhook.name };
+
+  const chat = def.nodes.find((node) => node.type === CHAT_TYPE);
+  if (chat) return { kind: "webhook", triggerNode: chat.name };
 
   const internal = def.nodes.find((node) => node.type === INTERNAL_TYPE);
   if (internal) return { kind: "internal", triggerNode: internal.name };
@@ -83,6 +87,19 @@ export function buildWebhookRequest(
   data: unknown,
 ): { url: string; method: string; body: unknown } {
   const node = findNode(def, triggerNode);
+  if (node.type === CHAT_TYPE) {
+    if (node.parameters?.public !== true) {
+      throw new CliError("bad-arguments", `Chat Trigger node "${triggerNode}" is not publicly available.`);
+    }
+    if (typeof node.webhookId !== "string" || !node.webhookId) {
+      throw new CliError("bad-arguments", `Chat Trigger node "${triggerNode}" has no webhookId.`);
+    }
+    return {
+      url: `${baseUrl.replace(/\/+$/, "")}/webhook/${node.webhookId}/chat`,
+      method: "POST",
+      body: data,
+    };
+  }
   const webhookPath = node.parameters?.path;
   if (typeof webhookPath !== "string" || webhookPath.length === 0) {
     throw new CliError(

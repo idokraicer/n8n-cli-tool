@@ -101,7 +101,7 @@ password is stored in the config file (mode 0600); to avoid that, pass
 | `push <workflow>` | Push local changes back: merge changed nodes (default) or `--whole`. |
 | `create <file>` | Create a NEW workflow from a local JSON file (created inactive; `--yes`-gated). |
 | `publish <workflow>` | Publish an inactive workflow (preview by default; apply with `--yes`). |
-| `run <workflow>` | Test-run with sample data (webhook, or internal `/rest` for sub-workflows). |
+| `run <workflow>` | Test-run with sample data (Webhook, public Chat Trigger, or internal `/rest` for sub-workflows). |
 | `table` | Manage n8n data tables: metadata, rows, and columns (API-key auth; previews by default). |
 
 ## Examples
@@ -161,6 +161,9 @@ n8n-helper publish "New Tool" --yes
 
 # Test-run end-to-end with sample data
 n8n-helper run "Apply Agreement" --data sample.json --poll
+
+# Send a message to a published, public Chat Trigger
+n8n-helper run "Chat Agent" --data-inline '{"chatInput":"Hello","sessionId":"cli-test-1"}'
 ```
 
 ### Execution time filters
